@@ -464,9 +464,11 @@ library.installFromFile({packId, file}) -> void
 library.importClip({file, source}) -> {packId, clipIds}
 shell.showItemInFolder(path)     -> void
 ```
+On the wire, invoke channels are named `mpm:<area>.<method>` (for example `mpm:app.info`); events
+use the bare event names below.
 Main → renderer events: `job:event {jobId, kind:"progress"|"result"|"error"|"log", payload}`,
 `blender:progress {bytes,total}`, `library:progress {packId, stage, fraction}`,
-`update:event {kind, version?}`, `app:open-project {path}`.
+`update:event {kind, version?, url?}`, `app:open-project {path}`.
 
 **File protocol** `mpm://`, registered as privileged (standard, secure, supportFetchAPI):
 - `mpm://project/<url-encoded relative path>` resolves inside the currently open project folder.

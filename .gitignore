@@ -14,3 +14,6 @@ fixtures/out/
 # never commit user data or third-party assets
 workspace/
 *.blend1
+
+# reference copies of the prototype scripts (architect-provided, not published)
+prototype/

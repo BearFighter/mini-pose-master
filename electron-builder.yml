@@ -1,0 +1,45 @@
+appId: com.bearfighter.miniposemaster
+productName: Mini Pose Master
+directories:
+  output: release
+files:
+  - out/**
+extraResources:
+  - from: engine
+    to: engine
+  - from: resources
+    to: resources
+asar: true
+fileAssociations:
+  - ext: mposer
+    name: Mini Pose Master Project
+    role: Editor
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+mac:
+  target:
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
+  category: public.app-category.graphics-design
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  category: Graphics
+publish:
+  - provider: github
+    owner: BearFighter
+    repo: mini-pose-master
+    releaseType: draft

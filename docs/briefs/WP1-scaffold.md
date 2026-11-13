@@ -107,7 +107,7 @@ security settings, the `mpm://` protocol, typed IPC stubs, the skeleton loader, 
     - `publish: [{provider: github, owner: BearFighter, repo: mini-pose-master, releaseType: draft}]`.
 12. `engine/README.md` and `engine/mpm/__init__.py` already exist (the architect created them).
     Don't modify them.
-13. `vitest.config.ts`: test files `tests/ts/**/*.test.ts`, environment `node`.
+13. `vitest.config.mts`: test files `tests/ts/**/*.test.ts`, environment `node`.
 14. Tests:
     - `tests/ts/skeleton.test.ts`:
       - JOINTS.length === 68 and BONES.length === 53
