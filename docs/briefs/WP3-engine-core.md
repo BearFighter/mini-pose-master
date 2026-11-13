@@ -122,8 +122,15 @@ Blender: `C:/Program Files/Blender Foundation/Blender 5.2/blender.exe`. Tests ru
    - Assert the stdout has ≥ 1 `@@progress` line, exactly one `@@result`, no `@@error`, exit code 0,
      and that `rig/scene.blend` exists.
    - A second run with a bad schema returns exactly one `@@error` with `E_ARGS` and exit code 1.
-2. **Import/normalise** (in-process):
-   - `apose.fbx`: height 1.80 ± 0.005; suggested forward `-Y`, unit 1; identity matrices; min z ≈ 0.
+2. **Import/normalise** (in-process). Note from WP2:
+   - The fixture meshes are about **1.81 m** tall, because the skin end caps extend past `head_top`
+     and the toes; the truth joints are unchanged.
+   - Blender's FBX exporter put `yup_cm`'s ×100 into the node scale, so a default import is about
+     181 units tall.
+
+   Define `H_ref` = the bbox height of `apose.fbx` imported with defaults, measured in the test, and
+   compare every variant against `H_ref`, not 1.80.
+   - `apose.fbx`: height = H_ref ± 0.005; suggested forward `-Y`, unit 1; identity matrices; min z ≈ 0.
    - `yup_cm.fbx`: after normalising with the suggested orientation, height 1.80 ± 0.005 and editable
      joints match the truth within 5 mm. Measure joints as the truth positions, not by fitting: check
      that the mesh bbox equals the truth mesh bbox (bbox of `apose` normalised) within 5 mm.
