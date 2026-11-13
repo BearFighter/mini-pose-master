@@ -131,9 +131,9 @@ Blender: `C:/Program Files/Blender Foundation/Blender 5.2/blender.exe`. Tests ru
    Define `H_ref` = the bbox height of `apose.fbx` imported with defaults, measured in the test, and
    compare every variant against `H_ref`, not 1.80.
    - `apose.fbx`: height = H_ref ± 0.005; suggested forward `-Y`, unit 1; identity matrices; min z ≈ 0.
-   - `yup_cm.fbx`: after normalising with the suggested orientation, height 1.80 ± 0.005 and editable
-     joints match the truth within 5 mm. Measure joints as the truth positions, not by fitting: check
-     that the mesh bbox equals the truth mesh bbox (bbox of `apose` normalised) within 5 mm.
+   - `yup_cm.fbx`: after normalising with the suggested orientation (the suggested `unit_scale` must
+     be 0.01), its height = H_ref ± 0.005 and its mesh bbox equals the bbox of `apose` normalised,
+     within 5 mm.
    - `rigged_mixamo.fbx`: `has_armature`; the armature object matrix is identity after normalising;
      the bone count matches the truth mapping's key count; the mesh has an Armature modifier.
    - `apose.glb` and `apose.obj` give the same height within 5 mm.
