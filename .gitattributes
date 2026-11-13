@@ -1,0 +1,10 @@
+* text=auto eol=lf
+*.png binary
+*.npy binary
+*.glb binary
+*.fbx binary
+*.blend binary
+*.f32 binary
+*.stl binary
+*.ico binary
+*.icns binary
