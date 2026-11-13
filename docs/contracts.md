@@ -230,6 +230,18 @@ After export, the engine parses the GLB JSON chunk and records every bone's `glt
 `rest_q` is `R_rest_b` as a quaternion. `radius_m` is set for finger bones (the mean distance from
 the bone axis to the mesh vertices weighted > 0.5 to that bone) and is null elsewhere.
 
+**Imported rigs** (`kind: "imported"`):
+- `bones` lists every armature bone in Blender's bone order. `index` is that order.
+- `canonical` comes from the mapping. Bones mapped to null are posed by `D = D_parent`.
+- Two non-deform bones `mpm_grip.L` / `mpm_grip.R` (canonical `grip.L` / `grip.R`) are added under the
+  mapped hand bones, at the §4 grip positions.
+- `joints` are taken from the mapped bones:
+  - each canonical bone's head gives its head joint
+  - `head_top`, finger tips and `toe` come from the mapped bone's tail
+  - joints still missing are derived by the §4 rules where possible
+- `hands` is null for a side without mapped finger bones; hand posing is then unavailable on that
+  side.
+
 ---------------------------------------------------------------------------------------------------
 ## 9. Clip format (pose library)
 
@@ -279,14 +291,23 @@ Rules for what is stored:
     "middle": { ... }, "ring": { ... }, "pinky": { ... } } }
 ```
 - Angles are in degrees.
-- **Flex** rotates about the bone's local X (positive curls toward the palm).
-- **Spread** rotates about local Z, with **positive toward the thumb side** for both hands; the
-  implementation picks the sign per side.
-- **Roll** (thumb only) rotates about local Y.
-- Per-bone local delta in the bone's own rest frame: `L = Rz(spread) · Rx(flex) · Ry(roll)`. Spread
-  and roll apply only to the `.01` bone.
-- The resulting armature delta is `D_b = (R_parent_posed · R_rest_parent⁻¹ · R_rest_b · L) · R_rest_b⁻¹`,
-  which is consistent with section 5.
+- **Finger frame.** Hand poses are defined in a frame built from geometry, never from a bone's own
+  axes, so they work on imported rigs too. For each finger bone b (rest, armature space):
+  - `d` = normalize(tail − head)
+  - `n` = `rig.json.hands[side].palm_normal`
+  - `z` = normalize(n − d·dot(n, d))
+  - `x` = normalize(cross(d, z))
+  - `F_b = [x, d, z]` (columns)
+
+  On auto rigs `F_b` equals the bone's rest rotation, by the §3 roll rule.
+- **Flex**: rotation about the frame's x. Positive moves d toward z, i.e. curls toward the palm.
+- **Spread**: rotation about the frame's z by **+spread on L and −spread on R**. Positive spread moves
+  the finger toward the thumb side on both hands.
+- **Roll** (thumb only): rotation about d.
+- Local delta, in frame F_b: `L = Rz(±spread) · Rx(flex) · Ry(roll)`. Spread and roll apply only to
+  the `.01` bones.
+- Armature delta, applied parents first so each joint carries its parent's final delta:
+  **`D_b = D_parent · F_b · L · F_bᵀ`**. This is consistent with section 5.
 
 ---------------------------------------------------------------------------------------------------
 ## 11. Auto-grip (renderer, `autoGrip.ts`)
@@ -429,6 +450,7 @@ Job types (args → result):
 |---|---|---|
 | `import` | `file`, `orientation` (optional; else auto) | `objects[]` (with `materials`), `materials[]`, `normal_maps[]`, `has_armature`, `armature_bones[]`, `tri_count`, `height_m`, `suggested_orientation`, `orientation_used`, `proxy` (bool), `warnings[]`; writes `rig/scene.blend` |
 | `suggest_markers` | – | `markers` (section 4) + `warnings[]` |
+| `suggest_mapping` | – (needs an armature in scene.blend) | `convention` (`mixamo` `ue` `biped` `rigify` `unknown`), `mapping` `{bone_name: canonical_bone or null}`, `unmapped_canonical[]`, `confidence` |
 | `rig` | `markers` or `mapping` (`{bone_name: canonical_name}`) | `rig_json`, `rig_glb`, `follow` stats; writes `rig/rig.blend` |
 | `convert_clip` | `source`, `file`, `pack_dir` | `clips[]` ids added |
 | `dump_skinned` | `pose`, `sample` (list of `_ORIG_INDEX`) | `positions` (same order, posed, before subdivision, metres) |
