@@ -427,7 +427,7 @@ Job types (args → result):
 
 | type | args | result |
 |---|---|---|
-| `import` | `file`, `orientation` (optional; else auto) | `objects[]`, `materials[]`, `normal_maps[]`, `has_armature`, `armature_bones[]`, `tri_count`, `height_m`, `suggested_orientation`, `proxy` (bool); writes `rig/scene.blend` |
+| `import` | `file`, `orientation` (optional; else auto) | `objects[]` (with `materials`), `materials[]`, `normal_maps[]`, `has_armature`, `armature_bones[]`, `tri_count`, `height_m`, `suggested_orientation`, `orientation_used`, `proxy` (bool), `warnings[]`; writes `rig/scene.blend` |
 | `suggest_markers` | – | `markers` (section 4) + `warnings[]` |
 | `rig` | `markers` or `mapping` (`{bone_name: canonical_name}`) | `rig_json`, `rig_glb`, `follow` stats; writes `rig/rig.blend` |
 | `convert_clip` | `source`, `file`, `pack_dir` | `clips[]` ids added |
