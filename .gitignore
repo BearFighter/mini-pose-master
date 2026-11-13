@@ -1,0 +1,16 @@
+node_modules/
+out/
+dist/
+release/
+*.log
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+.vite/
+coverage/
+# generated fixtures (regenerate with fixtures/generate.py)
+fixtures/out/
+# never commit user data or third-party assets
+workspace/
+*.blend1
