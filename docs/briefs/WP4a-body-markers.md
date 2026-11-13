@@ -99,3 +99,35 @@ For fixtures `apose`, `tpose`, `skirt`, `mitten`, and `yup_cm`: run the WP3 impo
 ## Acceptance
 `blender … -P tests/engine/run.py -- markers` passes, and the earlier suites still pass. Report the
 per-marker error table (cm) for each fixture.
+
+---------------------------------------------------------------------------------------------------
+## Revision 1 (architect), after the first implementation report
+
+The fixtures were regenerated with human-like anatomy: crotch at about 0.83–0.86 m, knee and neck
+narrowing, a deltoid, and a real palm. Some of the original rules were anatomically wrong. The
+replacements below override the matching steps above; all other steps stay.
+
+- **Deviations 1–7** from the first report are all accepted. That includes the fingertip search set
+  restricted like the hand search, and the inside factor of 1.0 for `head_top`/`toe`.
+- **Hips** (step 1): `hip_z = crotch + 0.045·H` (was 0.015·H). Real hip joint centres sit about
+  4–5 % of height above the crotch.
+- **Chest** (step 5): the torso centre at `hip_z + 0.70·(shoulder_z − hip_z)` (was 0.55).
+- **Head** (step 5):
+  - `z_n` = the z of minimum horizontal width of the midline cluster (the largest cluster spanning
+    x = 0) over `[shoulder_z + 0.04·H, 0.95·H]`.
+  - `head` = the midline cluster centre at `z_n + 0.18·(H − z_n)`.
+  - The neck rule is unchanged.
+- **Shoulder** (step 4), pose-independent, replacing "armpit + 0.045 H":
+  - `z_ref` = the z of the armpit point (the last good traced centroid before the merge).
+  - `torso_half` = the max |x| of the midline cluster in the horizontal slab at `z_ref − 0.03·H`.
+  - `r_arm` = the median of (traced width / 2) over traced points within 0.10·H of the armpit.
+  - `x_sh = torso_half + 0.5·r_arm`.
+  - The shoulder is the point on the least-squares centreline line (fitted through traced centroids
+    within 0.10·H of the armpit) where `sign·x = x_sh`.
+  - Fall back to the old rule (the armpit point moved 0.045·H along −A), with confidence ×0.5, if
+    `|A.x| < 0.2` or the intersection lies more than 0.15·H from the armpit.
+- **Elbow**: unchanged (half arc length shoulder→wrist along the centreline).
+- **Tolerances**:
+  - limbs (shoulder, elbow, wrist, hip, knee, ankle, toe): **2 % of H**
+  - torso (pelvis, chest, neck, head, head_top): **3 % of H**
+  - confidence ≥ 0.6 on all listed fixtures (unchanged)

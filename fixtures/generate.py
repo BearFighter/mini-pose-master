@@ -316,9 +316,11 @@ def smart_uv(obj):
 # ----------------------------------------------------------------------------------------------
 # mesh construction
 # ----------------------------------------------------------------------------------------------
-RADIUS = {"pelvis": 0.15, "spine0": 0.14, "chest": 0.16, "neck": 0.055, "head": 0.10, "head_top": 0.03,
-          "clav": 0.06, "shoulder": 0.06, "elbow": 0.045, "wrist": 0.035, "hip": 0.085, "knee": 0.06,
-          "ankle": 0.045, "ball": 0.035, "toe": 0.025}
+RADIUS = {"pelvis": 0.12, "spine0": 0.13, "chest": 0.15, "upper_chest": 0.155, "neck": 0.055,
+          "neck_mid": 0.050, "head": 0.075, "cranium": 0.10, "head_top": 0.03,
+          "clav": 0.06, "shoulder": 0.065, "upper_arm_mid": 0.048, "elbow": 0.042, "forearm_mid": 0.040,
+          "wrist": 0.030, "hip": 0.085, "mid_thigh": 0.075, "knee": 0.048, "mid_calf": 0.060,
+          "ankle": 0.040, "ball": 0.035, "toe": 0.025}
 
 
 def base_name(n):
@@ -340,32 +342,65 @@ def skin_parts(J, mitten=False):
     """Skin edge graphs: (name, edges, radius overrides). The first vertex of each part is its skin root.
 
     The brief asks for ONE skin graph; Blender's Skin modifier cannot build the junctions of that graph
-    (see DEVIATIONS), so the graph is split at the problem junctions and the parts are unioned."""
+    (see DEVIATIONS), so the graph is split at the problem junctions and the parts are unioned.
+    Returns (parts, positions incl. extra non-joint vertices, palm/paddle blocks)."""
     parts = []
+    blocks = []
     P = dict(J)
-    body = [("pelvis", "spine0"), ("spine0", "chest"), ("chest", "neck"), ("neck", "head"), ("head", "head_top")]
+    P["upper_chest"] = np.array([0.0, 0.015, 1.40])
+    P["neck_mid"] = lerp(J["neck"], J["head"], 0.5)
+    P["cranium"] = np.array([0.0, 0.02, 1.69])
+    body = [("pelvis", "spine0"), ("spine0", "chest"), ("chest", "upper_chest"), ("upper_chest", "neck"),
+            ("neck", "neck_mid"), ("neck_mid", "head"), ("head", "cranium"), ("cranium", "head_top")]
     for s in ("L", "R"):
-        body += [("pelvis", "hip_" + s), ("hip_" + s, "knee_" + s), ("knee_" + s, "ankle_" + s),
+        P["mid_thigh_" + s] = lerp(J["hip_" + s], J["knee_" + s], 0.4)
+        P["mid_calf_" + s] = lerp(J["knee_" + s], J["ankle_" + s], 0.30)
+        P["upper_arm_mid_" + s] = lerp(J["shoulder_" + s], J["elbow_" + s], 0.5)
+        P["forearm_mid_" + s] = lerp(J["elbow_" + s], J["wrist_" + s], 0.4)
+        body += [("pelvis", "hip_" + s), ("hip_" + s, "mid_thigh_" + s), ("mid_thigh_" + s, "knee_" + s),
+                 ("knee_" + s, "mid_calf_" + s), ("mid_calf_" + s, "ankle_" + s),
                  ("ankle_" + s, "ball_" + s), ("ball_" + s, "toe_" + s)]
     parts.append(("body", body, {}))
     for s in ("L", "R"):
         parts.append(("arm_" + s, [(CLAV_PARENT, "clav_" + s), ("clav_" + s, "shoulder_" + s),
-                                   ("shoulder_" + s, "elbow_" + s), ("elbow_" + s, "wrist_" + s)], {}))
+                                   ("shoulder_" + s, "upper_arm_mid_" + s), ("upper_arm_mid_" + s, "elbow_" + s),
+                                   ("elbow_" + s, "forearm_mid_" + s), ("forearm_mid_" + s, "wrist_" + s)], {}))
+        fr = hand_frame(J, s)
+        ax, lat, nrm_ = fr["hand_axis"], fr["lateral"], fr["palm_normal"]
+        x = nrm(lat - ax * np.dot(lat, ax))
+        w, m0, tip = J["wrist_" + s], J["middle_0_" + s], J["middle_tip_" + s]
+        mean0 = np.mean([J["%s_0_%s" % (f, s)] for f in FOUR_FINGERS], axis=0)
+        blocks.append(("palm_" + s, lerp(w, mean0, 0.5), (x, ax, nrm_),
+                       (fr["hand_width"] + 0.022, float(np.linalg.norm(m0 - w)) + 0.01, 0.030)))
+        if mitten:
+            blocks.append(("paddle_" + s, lerp(m0, tip, 0.5), (x, ax, nrm_),
+                           (fr["hand_width"] + 0.01, float(np.linalg.norm(tip - m0)) + 0.01, 0.025)))
         for f in FINGERS:
-            if mitten and f in ("index", "ring", "pinky"):
+            if mitten and f in ("index", "middle", "ring", "pinky"):
                 continue
-            # The skin surface ends flush at an end vertex, so each hand part starts at an anchor point a
-            # little inside the forearm to make the union overlap the arm.
-            w = "anchor_" + s
-            P[w] = J["wrist_" + s] - 0.02 * hand_frame(J, s)["hand_axis"]
-            if mitten and f == "middle":
-                parts.append(("middle_" + s, [(w, "middle_0_" + s), ("middle_0_" + s, "middle_tip_" + s)],
-                              {w: 0.03, "middle_0_" + s: 0.03, "middle_tip_" + s: 0.02}))
-                continue
-            names = [w] + ["%s_%d_%s" % (f, k, s) for k in range(3)] + ["%s_tip_%s" % (f, s)]
-            # the wrist end of a finger part is thin (finger radius) so it hides inside the arm's wrist box
-            parts.append(("%s_%s" % (f, s), list(zip(names[:-1], names[1:])), {w: radius_of(names[1])}))
-    return parts, P
+            # Each finger chain starts at an anchor 0.008 m back from its first joint, inside the palm.
+            f0 = J["%s_0_%s" % (f, s)]
+            a_ = "anchor_%s_%s" % (f, s)
+            P[a_] = f0 + 0.008 * nrm(w - f0)
+            names = [a_] + ["%s_%d_%s" % (f, k, s) for k in range(3)] + ["%s_tip_%s" % (f, s)]
+            parts.append(("%s_%s" % (f, s), list(zip(names[:-1], names[1:])), {a_: radius_of(names[1])}))
+    return parts, P, blocks
+
+
+def make_block(name, centre, axes, size):
+    bm = bmesh.new()
+    rot = Matrix([[axes[0][i], axes[1][i], axes[2][i]] for i in range(3)]).to_4x4()
+    m = Matrix.Translation(Vector(tuple(float(c) for c in centre))) @ rot @ Matrix.Diagonal((size[0], size[1], size[2], 1.0))
+    bmesh.ops.create_cube(bm, size=1.0, matrix=m)
+    bmesh.ops.bevel(bm, geom=list(bm.verts) + list(bm.edges), offset=0.006, offset_type="OFFSET",
+                    segments=2, affect="EDGES")
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    mesh = bpy.data.meshes.new(name)
+    bm.to_mesh(mesh)
+    bm.free()
+    for pl in mesh.polygons:
+        pl.use_smooth = True
+    return link(bpy.data.objects.new(name, mesh))
 
 
 def link(obj):
@@ -438,8 +473,9 @@ def skin_part(name, J, edges, rad_over, sub_levels=1):
 
 
 def skin_body(name, J, mitten=False, sub_levels=1):
-    parts, P = skin_parts(J, mitten)
+    parts, P, blocks = skin_parts(J, mitten)
     objs = [skin_part("%s_%s" % (name, pn), P, e, r, sub_levels) for pn, e, r in parts]
+    objs += [make_block("%s_%s" % (name, bn), c, ax, sz) for bn, c, ax, sz in blocks]
     base = objs[0]
     for o in objs[1:]:
         m = base.modifiers.new("Union", "BOOLEAN")
@@ -479,8 +515,35 @@ def mesh_stats(obj):
     return {"bad_edges": bad, "components": comps, "tris": tris, "verts": len(obj.data.vertices)}
 
 
+LAST_MEASURE = {}
+
+
+def measure(objs, body):
+    """Final-mesh bbox of objs and crotch_z: first hit of a ray going up at x=0, y=mean(hip_L.y, hip_R.y)."""
+    mn, mx = np.full(3, np.inf), np.full(3, -np.inf)
+    for o in objs:
+        a = np.array([tuple(v.co) for v in o.data.vertices])
+        mn, mx = np.minimum(mn, a.min(0)), np.maximum(mx, a.max(0))
+    from mathutils.bvhtree import BVHTree
+    bm = bmesh.new()
+    bm.from_mesh(body.data)
+    bvh = BVHTree.FromBMesh(bm)
+    bm.free()
+    y = HIP_Y_MEAN
+    loc, _n, _i, _d = bvh.ray_cast(Vector((0.0, y, -1.0)), Vector((0, 0, 1)))
+    return {"mesh_bbox_m": {"min": mn.tolist(), "max": mx.tolist()},
+            "crotch_z": None if loc is None else float(loc.z)}
+
+
+HIP_Y_MEAN = 0.0
+
+
 def textured_body(name, d, J, mitten=False, textured=True):
+    global HIP_Y_MEAN
+    HIP_Y_MEAN = float((J["hip_L"][1] + J["hip_R"][1]) / 2.0)
     obj = skin_body(name, J, mitten=mitten)
+    LAST_MEASURE.clear()
+    LAST_MEASURE.update(measure([obj], obj))
     st = mesh_stats(obj)
     assert st["bad_edges"] == 0, "non-manifold edges in %s: %s" % (name, st)
     assert st["components"] == 1, "body is not one connected piece: %s" % st
@@ -535,6 +598,7 @@ def humanoid_truth(name, J, theta, export, mapping=None):
          "joints": {k: [float(c) for c in v] for k, v in J.items()},
          "hands": hands_truth(J), "editable": list(skeleton()["editable"]),
          "normal_convention": "directx"}
+    t.update(LAST_MEASURE)
     if mapping is not None:
         t["mapping"] = mapping
     return t
@@ -624,6 +688,7 @@ def fx_skirt(d, name="skirt"):
     for o in (cone, flap):
         smart_uv(o)
         o.data.materials.append(mat)
+    LAST_MEASURE.update({k: v for k, v in measure([body, cone, flap], body).items() if k == "mesh_bbox_m"})
     export_fbx(os.path.join(d, name + ".fbx"), [body, cone, flap])
     write_truth(d, name, humanoid_truth(name, J, APOSE_DEG, EXPORT_STD))
 
@@ -651,6 +716,7 @@ def fx_dense(d, name="dense"):
     st = mesh_stats(body)
     print("dense: %d tris, %d bad edges" % (st["tris"], st["bad_edges"]))
     assert 900_000 <= st["tris"] <= 1_200_000, st
+    LAST_MEASURE.update(measure([body], body))
     export_fbx(os.path.join(d, name + ".fbx"), [body], textures=False)
     write_truth(d, name, humanoid_truth(name, J, APOSE_DEG, EXPORT_STD))
 

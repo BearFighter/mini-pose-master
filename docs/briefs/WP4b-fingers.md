@@ -120,3 +120,74 @@ errors don't mix in, with `H` = the mesh height.
 ## Acceptance
 `blender … -P tests/engine/run.py -- fingers` passes, and the earlier suites still pass. Report the
 per-finger error table.
+
+---------------------------------------------------------------------------------------------------
+## Revision 2 (architect): replaces the proxy/geodesic/persistence method
+
+**Findings.**
+- The voxel proxy (0.0025·H ≈ 4.5 mm) fuses neighbouring fingers, which are 2–7 mm apart. Persistence
+  still ranked the 5 true tips first, but ring and pinky sat at noise level, and merge levels landed
+  just below the tips.
+- Real game hands often have nearly touching fingers too, so any voxel approach has the same flaw.
+- The fixtures now have a real palm: fingers start at their `_0` knuckles.
+
+**New method.** Slice the hand across its own axis, using dense samples of the original surface and 2D
+clustering. This is the approach already proven for arms in WP4a. **Remove** the hand proxy, the
+Dijkstra, the merge-tree sweeps, the labels and the `MIN_PERSISTENCE_FACTOR`.
+You may import `engine.mpm.rig.sampling` (`surface_samples`, `clusters2d`) from WP4a.
+
+Per side s (sign = ±1):
+1. `a = normalize(wrist − elbow)`. Hand samples: 80,000 area-weighted surface samples of all meshes,
+   kept if `dot(p − wrist, a) > −0.01·H` and `|p − wrist| < 0.16·H`.
+2. **Hand axis** `a_h = normalize(c − wrist)`, where c is the centroid of the samples in the top 2 %
+   of `dot(p − wrist, a)`. Lateral guess `l0` = `(0, −1, 0)` made perpendicular to `a_h`;
+   `m = cross(a_h, l0)`.
+3. **Slices** perpendicular to `a_h`:
+   - every `0.002·H`, from `s = 0` (the wrist) to the far end, with slab half-thickness `0.0015·H`
+   - project into 2D `(u, v) = (dot(·, l0), dot(·, m))`
+   - cluster with `clusters2d(gap = 0.0015·H)`
+   - ignore clusters with fewer than 15 points
+4. **Palm vs fingers**:
+   - From s = 0 outward, the "palm" is the largest cluster.
+   - The **knuckle slice** `s_k` is the first slice where at least 3 clusters whose u-ranges lie within
+     the palm's previous u-range each hold at least 8 % of that slice's points.
+   - If none is found before the far end, use the **template fallback** (below, unchanged) with
+     `hl = far end s`. Mitten and fused hands land here, as intended.
+5. **Thumb**: a cluster that appears separate from the palm at some `s < s_k`, on the side away from
+   most of the fingers' bulk, or the cluster at `s_k` most offset in `|v|`, if the thumb lies
+   alongside the palm.
+   - Track it outward by nearest-centroid continuity (as in the WP4a arm trace) until it vanishes.
+   - `thumb_tip` = its track's sample farthest from the wrist.
+   - `thumb_0` = lerp(the centroid where it first separated, wrist, 0.35).
+6. **Fingers**:
+   - Starting at `s_k`, track each non-thumb cluster outward by nearest centroid; a finger ends when
+     its cluster vanishes.
+   - Order the 4 fingers by u: index is nearest the thumb's u.
+   - `<f>_tip` = the track's sample farthest along `a_h`, moved inward toward the track's last
+     centroid by 0.4 × that cluster's half-width.
+   - `<f>_0` (knuckle) = the track's first centroid moved back along `−a_h` by 0.5 × its
+     half-width.
+   - If only 4 non-thumb tracks run longer than `0.02·H` (one finger fused or missing), template-fill
+     the missing one at confidence 0.4. Fewer than 4 means template fallback.
+7. **Confidence**: 1.0 for detected fingers; 0.4 template-filled; 0.2 fallback. Multiply by 0.6 for
+   any finger whose tip lies less than `0.02·H` beyond its knuckle along `a_h` (a curled or short
+   detection).
+8. The hand frame follows §4 from the found joints.
+9. **`hand_info[side]`** keeps `hand_axis`, `lateral`, `palm_normal`, `hand_width`, `fallback`,
+   `wrist`, `forearm_axis`, `H` and `joints`, and drops all proxy keys.
+   `hand_info_from_markers` simply builds this from the given joints.
+10. **`hand_weight_fractions`**, by nearest chain (no proxy):
+    - Hand region = mesh vertices with `dot(p − wrist, a) > 0` and `|p − wrist| < 0.16·H`.
+    - For each, compute the distance to each finger's polyline `_0`→`_1`→`_2`→tip (from the §4 rules)
+      and to the palm segment wrist→`middle_0`.
+    - Assign the finger with the smallest polyline distance, unless the palm segment is closer by
+      more than 10 %: then the vertex is palm (`hand.s` = 1).
+    - Within the finger, use the bone-by-projection blending already specified (±15 % around interior
+      joints and around the knuckle with `hand.s`).
+    - Keep the far-vertex cut-off: exclude vertices farther than `0.03·H` from every hand polyline.
+
+**Tests** stay as specified in the previous revision:
+- apose/tpose: `fallback is False`, tips within 15 %, knuckles within 20 %
+- curled: within 25 %, or confidence ≤ 0.4
+- mitten: fallback
+- the weights checks, including the far-vertex test

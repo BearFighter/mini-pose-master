@@ -384,3 +384,35 @@ def test_rigged_fixtures_reimport():
         zero = sum(1 for v in mesh.data.vertices if sum(g.weight for g in v.groups) <= 0.0)
         assert zero == 0, "%s: %d vertices with zero total weight" % (n, zero)
         print("  %s: %d bones, %d vertices, all weighted" % (n, len(names), len(mesh.data.vertices)))
+
+
+# ---- anatomy ----------------------------------------------------------------------------------------
+def test_apose_crotch_and_knee_anatomy():
+    t = truth("apose")
+    assert "mesh_bbox_m" in t and set(t["mesh_bbox_m"]) == {"min", "max"}
+    cz = t["crotch_z"]
+    print("  measured crotch_z = %.4f m" % cz)
+    assert 0.80 <= cz <= 0.88, cz
+    objs = import_fbx("apose", automatic_bone_orientation=False)
+    mesh = [o for o in objs if o.type == "MESH"][0]
+    verts, polys = world_mesh(mesh)
+    bvh = BVHTree.FromPolygons(verts, polys)
+    kz = t["joints"]["knee_L"][2]
+    ky = t["joints"]["knee_L"][1]
+
+    def width(z):
+        # left-leg cross-section: first two hits of a ray going -X from outside (outer wall, inner wall)
+        o = Vector((2.0, ky, z))
+        xs = []
+        for _ in range(4):
+            loc, _n, _i, _d = bvh.ray_cast(o, Vector((-1, 0, 0)))
+            if loc is None:
+                break
+            xs.append(loc.x)
+            o = loc + Vector((-1e-5, 0, 0))
+        assert len(xs) >= 2, (z, xs)
+        return xs[0] - xs[1]
+
+    wk, wlo, whi = width(kz), width(kz - 0.05), width(kz + 0.05)
+    print("  leg width below/knee/above = %.6f / %.6f / %.6f" % (wlo, wk, whi))
+    assert wk <= wlo - 0.003 and wk <= whi - 0.003, (wlo, wk, whi)

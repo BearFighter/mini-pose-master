@@ -34,10 +34,22 @@ Tests: `blender -b --factory-startup --python-exit-code 1 -P tests/engine/run.py
 | `sword` | Blade 0.80 m, grip origin, grip axis +Z, blade toward +Z. GLB and FBX. |
 | `rifle` | Barrel along +Y, origin at the pistol-grip centre. GLB and FBX. The truth gives main and support grip point, axis and palm normal (weapon-local). |
 
+## Anatomy
+
+Humanoids are built from Blender Skin-modifier parts (Subsurf level 1) unioned with an Exact boolean into one
+closed mesh. Extra non-joint skin vertices shape the body: `upper_chest`, `neck_mid`, `cranium`,
+`mid_thigh`, `mid_calf` (30 % knee to ankle, r 0.060), `upper_arm_mid`, `forearm_mid`. The neck is the
+narrowest part between shoulders and head top, the knee is a local minimum of leg width (at least 3 mm
+narrower than slices 5 cm above and below), and the crotch sits at about z = 0.87. Each hand has a
+bevelled palm block (oriented by the hand frame) and every finger and the thumb starts at an anchor 0.008 m
+behind its first joint, inside the palm. `mitten` keeps the palm and replaces the four fingers with one
+flattened bevelled box paddle from middle_0 to middle_tip. Chain ends extend 0.3 x radius past the end
+joint so end joints are inside the mesh.
+
 ## Truth file
 
 `mpm.fixture/1` JSON. Humanoids: `joints` (all 68 skeleton joints, metres, Blender frame, original
-orientation even for `yup_cm`), `hands`, `editable`, `export`, `arm_angle_deg`, `normal_convention`, and for rigged
+orientation even for `yup_cm`), `hands`, `editable`, `export`, `mesh_bbox_m` (min/max of the final mesh), `crotch_z` (first hit of an upward ray at x=0, y=mean hip y), `arm_angle_deg`, `normal_convention`, and for rigged
 fixtures `mapping` (fixture bone name -> canonical bone name or null). Weapons: `grips`.
 
 ## Normal map convention
