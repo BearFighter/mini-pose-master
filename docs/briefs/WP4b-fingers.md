@@ -13,8 +13,13 @@ Blender's Python has **numpy only (no scipy)**. Geodesics use a hand-written `he
 ## API
 ```python
 suggest_finger_markers(objs, body_markers: dict, H: float) -> (markers: dict, warnings: list[str], hand_info: dict)
+hand_info_from_markers(objs, joints: dict, H: float) -> dict
 hand_weight_fractions(mesh_obj, joints: dict, side: str, hand_info: dict) -> dict[int, dict[str, float]]
 ```
+`hand_info_from_markers` builds the same `hand_info` structure from **given** joints, for when the
+user has edited markers. It builds the proxy and geodesics as in steps 2–3, takes the tips as the
+proxy vertices nearest each given `<f>_tip`, the knuckles as the given `<f>_0`, and the hand frame per
+§4 from the given joints, with `fallback = False`. The rig job (WP4c) always uses this.
 - `markers`: for each side, the editable finger joints `thumb_0, thumb_tip, index_0, index_tip,
   middle_0, middle_tip, ring_0, ring_tip, pinky_0, pinky_tip` (suffix `_L`/`_R`), in the §4 format
   with `source: "auto"`.
