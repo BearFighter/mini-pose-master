@@ -5,6 +5,7 @@ import { createAppSlice } from './app'
 import { createBakeSlice } from './bake'
 import { createHandsSlice } from './hands'
 import { createJobsSlice } from './jobs'
+import { createLibrarySlice } from './library'
 import { createPoseSlice } from './pose'
 import { createProjectSlice } from './project'
 import { createRigSlice } from './rig'
@@ -23,5 +24,6 @@ export const useStore = create<Store>()((...a) => ({
   ...createWeaponsSlice(...a),
   ...createBakeSlice(...a),
   ...createJobsSlice(...a),
-  ...createUiSlice(...a)
+  ...createUiSlice(...a),
+  ...createLibrarySlice(...a)
 }))

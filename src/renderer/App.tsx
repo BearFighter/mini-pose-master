@@ -4,13 +4,17 @@ import { useEffect } from 'react'
 import { BlenderSetup } from './components/BlenderSetup'
 import { ErrorBanner } from './components/ErrorBanner'
 import { ImportStep } from './components/ImportStep'
+import { LibraryPanel } from './components/LibraryPanel'
+import { PoseStep } from './components/PoseStep'
 import { ProjectsScreen } from './components/ProjectsScreen'
 import { RigStep } from './components/RigStep'
+import { nextKey, Scrubber } from './components/Scrubber'
 import { StatusBar } from './components/StatusBar'
 import { StepNav } from './components/StepNav'
 import { TitleBar } from './components/TitleBar'
 import { fire, loadAppInfo, refreshBlender, saveProject, subscribeEvents } from './store/actions'
 import { useStore } from './store'
+import { commitFrame, redoPose, undoPose } from './store/poseActions'
 import { STEP_LABELS } from './store/ui'
 import { Viewer } from './viewer/Viewer'
 
@@ -31,6 +35,37 @@ function useAppLifecycle(): void {
       if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 's') {
         e.preventDefault()
         fire(saveProject())
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // Pose step: Ctrl+Z undo, Ctrl+Shift+Z / Ctrl+Y redo, arrows step frames (Shift: key frames).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const s = useStore.getState()
+      if (s.step !== 'pose' || isTextField(e.target)) return
+      const mod = e.ctrlKey || e.metaKey
+      const key = e.key.toLowerCase()
+      if (mod && !e.altKey && key === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) redoPose()
+        else undoPose()
+        return
+      }
+      if (mod && !e.altKey && key === 'y') {
+        e.preventDefault()
+        redoPose()
+        return
+      }
+      if (!mod && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        const src = s.poseInputs.source
+        const clip = s.loadedClip
+        if (!src || !clip || clip.clipId !== src.clip || clip.packId !== src.pack) return
+        e.preventDefault()
+        const dir = e.key === 'ArrowRight' ? 1 : -1
+        commitFrame(e.shiftKey ? nextKey(clip.entry.key_frames ?? [], src.frame, dir, clip.frames) : src.frame + dir)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -62,6 +97,7 @@ function StepPanel() {
   }
   if (step === 'import') return <ImportStep />
   if (step === 'rig') return <RigStep />
+  if (step === 'pose') return <PoseStep />
   return (
     <div className="step-panel">
       <h2>{STEP_LABELS[step]}</h2>
@@ -70,16 +106,27 @@ function StepPanel() {
   )
 }
 
+/** Keyboard shortcuts stay out of text fields (and other form controls). */
+function isTextField(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null
+  if (!el || !el.tagName) return false
+  const tag = el.tagName.toLowerCase()
+  return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable
+}
+
 export function App() {
   useAppLifecycle()
   const hasProject = useStore((s) => s.dir !== null)
+  const posing = useStore((s) => s.step === 'pose' && s.dir !== null && s.rigJson !== null)
   return (
-    <div className="app">
+    <div className={posing ? 'app posing' : 'app'}>
       <TitleBar />
       <StepNav />
+      {posing && <LibraryPanel />}
       <main className="viewport">
         <Viewer />
         {!hasProject && <ProjectsScreen />}
+        {posing && <Scrubber />}
         <ErrorBanner />
       </main>
       <aside className="panel">

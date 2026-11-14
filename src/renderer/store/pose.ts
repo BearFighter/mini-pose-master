@@ -1,52 +1,93 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// pose slice (contracts section 13/18): deltas by rig bone index, root offset, provenance, undo/redo.
-// No UI yet; the Pose step builds on it.
-import type { Vec3 } from '../../shared/coords'
-import type { Deltas } from '../../shared/fk'
-import type { PoseProvenance } from '../../shared/poseState'
+// pose slice (contracts sections 13 and 18): the pose *inputs* (clip source, mirrored, planted,
+// edits), a live preview, and undo/redo stacks of input snapshots. The deltas are derived with
+// composePose (lib/pose.ts computePose), never stored here.
+import type { EditOp } from '../../shared/composePose'
+import { REST_INPUTS, type PoseInputsState, type PosePreview } from '../lib/pose'
 import type { SliceCreator } from './types'
 
 export const UNDO_MAX = 100
 
-export interface PoseSnapshot {
-  deltas: Deltas
-  rootOffset: Vec3
-  provenance: PoseProvenance | null
-}
-
 export interface PoseSlice {
-  deltas: Deltas
-  rootOffset: Vec3
-  provenance: PoseProvenance | null
-  undo: PoseSnapshot[]
-  redo: PoseSnapshot[]
-  /** Sets the pose, pushing the previous one on the undo stack (at most 100) and clearing redo. */
-  setPose(pose: PoseSnapshot): void
-  undoPose(): void
-  redoPose(): void
-  resetPose(): void
+  poseInputs: PoseInputsState
+  posePreview: PosePreview | null
+  undo: PoseInputsState[]
+  redo: PoseInputsState[]
+  /** Bone (canonical name) of the last committed gizmo drag; a new drag on it merges (lib/pose appendRotate). */
+  gestureBone: string | null
+  /** A message about the pose (re-applied to a rebuilt rig, clip not installed, ...). */
+  poseNotice: string | null
+  /** Commits new inputs as one undo step (at most 100 kept); clears redo and the preview. */
+  commitPose(next: PoseInputsState, opts?: { gestureBone?: string | null }): void
+  setPosePreview(preview: PosePreview | null): void
+  undoPose(): boolean
+  redoPose(): boolean
+  /** Replaces the inputs without an undo step (project load, new rig). */
+  resetPoseInputs(inputs?: PoseInputsState): void
+  setPoseNotice(notice: string | null): void
 }
 
-const snapshot = (s: PoseSnapshot): PoseSnapshot => ({ deltas: s.deltas, rootOffset: s.rootOffset, provenance: s.provenance })
+/** Edits are compared by value: committing the same inputs again is not an undo step. */
+function same(a: PoseInputsState, b: PoseInputsState): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
 
 export const createPoseSlice: SliceCreator<PoseSlice> = (set, get) => ({
-  deltas: {},
-  rootOffset: [0, 0, 0],
-  provenance: null,
+  poseInputs: REST_INPUTS,
+  posePreview: null,
   undo: [],
   redo: [],
-  setPose: (pose) => set({ ...snapshot(pose), undo: [...get().undo, snapshot(get())].slice(-UNDO_MAX), redo: [] }),
+  gestureBone: null,
+  poseNotice: null,
+  commitPose: (next, opts = {}) => {
+    const { poseInputs, undo, data } = get()
+    const gestureBone = opts.gestureBone ?? null
+    if (same(poseInputs, next)) {
+      set({ posePreview: null, gestureBone })
+      return
+    }
+    set({
+      poseInputs: next,
+      posePreview: null,
+      undo: [...undo, poseInputs].slice(-UNDO_MAX),
+      redo: [],
+      gestureBone,
+      // a new project object so a save that is running doesn't mark this change as saved
+      ...(data ? { data: { ...data }, dirty: true } : {})
+    })
+  },
+  setPosePreview: (posePreview) => set({ posePreview }),
   undoPose: () => {
-    const undo = get().undo
+    const { undo, redo, poseInputs, data } = get()
     const prev = undo[undo.length - 1]
-    if (!prev) return
-    set({ ...prev, undo: undo.slice(0, -1), redo: [...get().redo, snapshot(get())].slice(-UNDO_MAX) })
+    if (!prev) return false
+    set({
+      poseInputs: prev,
+      posePreview: null,
+      undo: undo.slice(0, -1),
+      redo: [...redo, poseInputs].slice(-UNDO_MAX),
+      gestureBone: null,
+      ...(data ? { data: { ...data }, dirty: true } : {})
+    })
+    return true
   },
   redoPose: () => {
-    const redo = get().redo
+    const { undo, redo, poseInputs, data } = get()
     const next = redo[redo.length - 1]
-    if (!next) return
-    set({ ...next, redo: redo.slice(0, -1), undo: [...get().undo, snapshot(get())].slice(-UNDO_MAX) })
+    if (!next) return false
+    set({
+      poseInputs: next,
+      posePreview: null,
+      redo: redo.slice(0, -1),
+      undo: [...undo, poseInputs].slice(-UNDO_MAX),
+      gestureBone: null,
+      ...(data ? { data: { ...data }, dirty: true } : {})
+    })
+    return true
   },
-  resetPose: () => set({ deltas: {}, rootOffset: [0, 0, 0], provenance: null, undo: [], redo: [] })
+  resetPoseInputs: (inputs = REST_INPUTS) => set({ poseInputs: inputs, posePreview: null, undo: [], redo: [], gestureBone: null }),
+  setPoseNotice: (poseNotice) => set({ poseNotice })
 })
+
+/** Type helper for edit ops in components. */
+export type { EditOp }

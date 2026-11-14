@@ -6,8 +6,12 @@ import { Canvas } from '@react-three/fiber'
 import { useMemo } from 'react'
 import type { Vector3 } from 'three'
 import type { Vec3 } from '../../shared/coords'
+import type { ComposeResult } from '../../shared/composePose'
 import { deriveJoints } from '../../shared/derive'
+import type { Deltas } from '../../shared/fk'
 import type { MarkerMap } from '../../shared/project'
+import { computePose } from '../lib/pose'
+import { testPoseDeltas } from '../lib/testPose'
 import { useStore } from '../store'
 import { CameraRig } from './CameraRig'
 import { Markers } from './Markers'
@@ -29,6 +33,18 @@ function useDerivedJoints(markers: MarkerMap | null): Record<string, Vec3 | Vect
   }, [markers])
 }
 
+const NO_DELTAS: Deltas = {}
+
+/** The derived pose of the Pose step (composePose of the inputs + preview), memoised. */
+export function usePoseResult(): ComposeResult | null {
+  const rig = useStore((s) => s.rigJson)
+  const inputs = useStore((s) => s.poseInputs)
+  const preview = useStore((s) => s.posePreview)
+  const clip = useStore((s) => s.loadedClip)
+  const hands = useStore((s) => s.hands)
+  return useMemo(() => (rig ? computePose(rig, inputs, preview, clip, hands) : null), [rig, inputs, preview, clip, hands])
+}
+
 function Scene() {
   const hasProject = useStore((s) => s.dir !== null)
   const step = useStore((s) => s.step)
@@ -41,16 +57,32 @@ function Scene() {
   const xray = useStore((s) => s.xray)
   const rigPath = useStore((s) => s.rigPath)
   const joints = useDerivedJoints(markers)
+  const pose = usePoseResult()
+  const testDeltas = useMemo(() => (rigJson ? testPoseDeltas(rigJson) : NO_DELTAS), [rigJson])
 
   if (!hasProject) return null
   const rigReady = rigJson !== null && glbUrl !== null
   const showRig = rigReady && (step === 'rig' ? view === 'rig' : step !== 'import')
   const showMarkers = step === 'rig' && !showRig && rigPath === 'auto' && markers !== null
+  // The Rig step shows rest or the fixed test pose; the Pose step (and the later steps) the pose.
+  const posing = step !== 'rig' && step !== 'import'
+  const deltas = posing ? (pose?.deltas ?? NO_DELTAS) : testPose ? testDeltas : NO_DELTAS
+  const label = posing ? 'pose' : testPose ? 'test' : 'rest'
 
   return (
     <>
       {!showRig && previewUrl && <PreviewModel url={previewUrl} xray={showMarkers && xray} />}
-      {showRig && rigJson && glbUrl && <RigModel url={glbUrl} rig={rigJson} testPose={testPose} showBones={step === 'rig'} />}
+      {showRig && rigJson && glbUrl && (
+        <RigModel
+          url={glbUrl}
+          rig={rigJson}
+          deltas={deltas}
+          label={label}
+          showBones={step === 'rig' || step === 'pose'}
+          ground={posing}
+          tools={step === 'pose'}
+        />
+      )}
       {showMarkers && (
         <>
           <SkeletonLines joints={joints} />

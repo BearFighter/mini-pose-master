@@ -12,15 +12,14 @@ import type {
 } from '../../shared/jobResults'
 import type { Orientation, ProjectData } from '../../shared/project'
 import type { RigJson } from '../../shared/rig'
-import { api, cleanError, JobError, runJob, setJobProjectDir } from '../api'
+import { api, cleanError, runJob, setJobProjectDir } from '../api'
 import { handMarkerNames, isFingerMarker, markerHeight } from '../lib/markers'
 import { pickOrientation, sameOrientation } from '../lib/orientation'
 import { projectName, projectUrl } from '../lib/paths'
 import { addRecent } from '../lib/recent'
-import { useStore } from './index'
+import { defaultConfirm, errorBanner, fail, fire, nextVersion, S, type ConfirmDiscard } from './flow'
+import { restorePoseFromProject, syncPoseToProject } from './poseActions'
 import { mappingForJob } from './rig'
-
-const S = () => useStore.getState()
 
 export const MODEL_FILTERS: FileFilter[] = [
   { name: '3D models', extensions: ['fbx', 'glb', 'gltf', 'obj', 'stl', 'ply'] },
@@ -28,33 +27,8 @@ export const MODEL_FILTERS: FileFilter[] = [
 ]
 export const PROJECT_FILTERS: FileFilter[] = [{ name: 'Mini Pose Master project', extensions: ['mposer'] }]
 
-/** Asks before unsaved changes are thrown away. Replaced in tests and the e2e hook. */
-export type ConfirmDiscard = (message: string) => boolean
-
-const defaultConfirm: ConfirmDiscard = (message) => {
-  const c = (globalThis as { confirm?: (m: string) => boolean }).confirm
-  return typeof c === 'function' ? c(message) : true
-}
-
-function errorBanner(e: unknown): { code: string; message: string } {
-  if (e instanceof JobError) return { code: e.code, message: e.message }
-  return { code: 'ERROR', message: cleanError(e) }
-}
-
-/** Shows a failure in the error banner (cancellation is not an error) and rethrows it. */
-function fail(e: unknown): never {
-  if (!(e instanceof JobError && e.code === 'E_CANCELLED')) S().setError(errorBanner(e))
-  throw e
-}
-
-/** For UI handlers: run a flow and swallow its rejection (it is already in the banner). */
-export function fire(p: Promise<unknown>): void {
-  p.catch(() => {})
-}
-
-/** A cache-busting version for files a job has just rewritten. */
-let fileVersion = Date.now()
-const nextVersion = (): number => ++fileVersion
+export { fire }
+export type { ConfirmDiscard }
 
 // ---------------------------------------------------------------------------------------------------
 // App and Blender
@@ -81,6 +55,10 @@ export function subscribeEvents(): () => void {
       if (event.kind === 'log') S().appendLog(event.payload)
     }),
     api.on('update:event', (update) => S().setUpdate(update)),
+    api.on('library:progress', ({ packId, stage, fraction }) => {
+      if (stage === 'done') return
+      if (S().installs[packId]) S().setInstallProgress(packId, { stage, fraction })
+    }),
     api.on('app:open-project', ({ path }) => fire(openProject(path)))
   ]
   return () => offs.forEach((off) => off())
@@ -118,7 +96,10 @@ export async function cancelActiveJob(): Promise<void> {
 function initSlicesFromProject(data: ProjectData): void {
   const s = S()
   s.resetRig()
-  s.resetPose()
+  s.resetPoseInputs()
+  s.setPoseNotice(null)
+  s.setLoadedClip(null)
+  s.selectBone(null)
   s.setHandPose('L', data.hands?.L ?? null)
   s.setHandPose('R', data.hands?.R ?? null)
   s.setLockedFingers('L', data.hands?.locked?.L ?? [])
@@ -133,18 +114,36 @@ async function adoptProject(dir: string, data: ProjectData): Promise<void> {
   s.setProject(dir, data)
   initSlicesFromProject(data)
   s.select(null)
-  s.setStep(data.rig ? 'rig' : 'import')
+  s.setStep(data.rig ? (data.pose ? 'pose' : 'rig') : 'import')
   addRecent({ dir, name: projectName(dir) })
   const markers = data.rigDraft?.markers ?? null
   if (markers) S().setMarkers(markers, { dirty: false })
   S().setRigPath(data.rig?.kind === 'imported' ? 'imported' : 'auto')
-  if (data.source) S().setPreview(projectUrl('rig/preview.glb', nextVersion()))
+  if (data.source) {
+    S().setPreview(projectUrl('rig/preview.glb', nextVersion()))
+    await loadImportSummary(data.source.file)
+  }
   if (data.rig) {
     try {
       await loadRigFiles(nextVersion())
+      await restorePoseFromProject(data)
     } catch (e) {
       S().setError({ code: 'ERROR', message: `The rig files could not be loaded: ${cleanError(e)}` })
     }
+  }
+}
+
+/** The last import job's summary (rig/import.json), when it belongs to the current source model. */
+async function loadImportSummary(sourceFile: string): Promise<void> {
+  try {
+    const res = await fetch(projectUrl('rig/import.json', nextVersion()))
+    if (!res.ok) return
+    const info = (await res.json()) as ImportJobResult & { source_file?: string }
+    if (info.source_file !== undefined && info.source_file !== sourceFile) return
+    if (!Array.isArray(info.objects) || typeof info.tri_count !== 'number') return
+    S().setImportInfo(info)
+  } catch {
+    // no summary yet (or an older project): the Import step offers to run the import again
   }
 }
 
@@ -189,13 +188,17 @@ export function closeProject(confirm: ConfirmDiscard = defaultConfirm): boolean 
   setJobProjectDir(null)
   S().closeProject()
   S().resetRig()
-  S().resetPose()
+  S().resetPoseInputs()
+  S().setLoadedClip(null)
+  S().setPoseNotice(null)
   S().setStep('import')
   return true
 }
 
 /** Saves the project JSON (and, in the main process, rig/markers.json from rigDraft.markers). */
 export async function saveProject(): Promise<void> {
+  if (!S().dir || !S().data) return
+  syncPoseToProject(false) // project.pose from the pose inputs (contracts section 13)
   const { dir, data } = S()
   if (!dir || !data) return
   try {

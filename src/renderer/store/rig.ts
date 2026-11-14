@@ -16,7 +16,9 @@ export interface ViewerFlags {
   previewLoaded: boolean
   rigLoaded: boolean
   /** Pose currently shown by the rig model. */
-  pose: 'rest' | 'test' | null
+  pose: 'rest' | 'test' | 'pose' | null
+  /** Increases every time the rig model has shown a new pose. */
+  poseSeq: number
   boneCount: number
 }
 
@@ -65,7 +67,7 @@ export interface RigSlice {
   resetRig(): void
 }
 
-const NO_VIEWER: ViewerFlags = { previewLoaded: false, rigLoaded: false, pose: null, boneCount: 0 }
+const NO_VIEWER: ViewerFlags = { previewLoaded: false, rigLoaded: false, pose: null, poseSeq: 0, boneCount: 0 }
 
 function withDraftMarkers(data: ProjectData, markers: MarkerMap | null): ProjectData {
   return { ...data, rigDraft: { ...(data.rigDraft ?? { markers: null }), markers } }

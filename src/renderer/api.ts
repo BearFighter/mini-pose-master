@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The only module that touches window.mpm (contracts section 18). Typed wrappers with readable
 // errors, plus runJob, which turns a job's `job:event` stream into a promise.
+import { JOB_ERROR_CODES } from '../shared/ipc'
 import type {
   AppInfo,
   BlenderStatus,
@@ -8,9 +9,11 @@ import type {
   JobErrorCode,
   JobEvent,
   JobProgressPayload,
+  LibraryInstallResult,
   MpmApi,
   MpmEventName,
   MpmEventPayloads,
+  PackInfo,
   UpdateCheckResult
 } from '../shared/ipc'
 import type { ProjectData } from '../shared/project'
@@ -21,17 +24,35 @@ function mpm(): MpmApi {
   return w.mpm
 }
 
-/** Removes Electron's "Error invoking remote method '<channel>': Error: " prefix. */
-export function cleanError(e: unknown): string {
+/**
+ * Splits an IPC rejection into its contracts section 17 code and message: Electron's
+ * "Error invoking remote method '<channel>': Error: " prefix is removed, then "<CODE>: message".
+ */
+export function parseIpcError(e: unknown): { code: JobErrorCode | null; message: string } {
+  if (e instanceof JobError) return { code: e.code, message: e.message }
   const raw = e instanceof Error ? e.message : String(e)
-  return raw.replace(/^Error invoking remote method '[^']*':\s*/, '').replace(/^(?:[A-Za-z]*Error):\s*/, '')
+  const text = raw.replace(/^Error invoking remote method '[^']*':\s*/, '').replace(/^(?:[A-Za-z]*Error):\s*/, '')
+  const m = /^(E_[A-Z_]+):\s*([\s\S]*)$/.exec(text)
+  if (m && (JOB_ERROR_CODES as readonly string[]).includes(m[1])) return { code: m[1] as JobErrorCode, message: m[2] }
+  return { code: null, message: text }
+}
+
+/** The readable message of an IPC rejection (no Electron prefix, no error code). */
+export function cleanError(e: unknown): string {
+  return parseIpcError(e).message
+}
+
+/** An IPC rejection with a code becomes a JobError (same codes), anything else a plain Error. */
+function toError(e: unknown): Error {
+  const { code, message } = parseIpcError(e)
+  return code ? new JobError(code, message) : new Error(message)
 }
 
 async function call<T>(fn: (m: MpmApi) => Promise<T>): Promise<T> {
   try {
     return await fn(mpm())
   } catch (e) {
-    throw new Error(cleanError(e))
+    throw toError(e)
   }
 }
 
@@ -89,6 +110,19 @@ export const api = {
   job: {
     cancel: (jobId: string): Promise<void> => call((m) => m.job.cancel(jobId))
   },
+  library: {
+    list: (): Promise<PackInfo[]> => call((m) => m.library.list()),
+    install: (packId: string): Promise<LibraryInstallResult> => call((m) => m.library.install({ packId, acceptLicense: true })),
+    installFromFile: (packId: string, files: string[], append = false): Promise<LibraryInstallResult> =>
+      call((m) => m.library.installFromFile({ packId, files, acceptLicense: true, append })),
+    reconvert: (packId: string): Promise<LibraryInstallResult> => call((m) => m.library.reconvert(packId)),
+    importClip: (file: string, source: string | null = null): Promise<{ packId: string; clipIds: string[] }> =>
+      call((m) => m.library.importClip({ file, source })),
+    cancel: (packId: string): Promise<void> => call((m) => m.library.cancel(packId)),
+    remove: (packId: string): Promise<void> => call((m) => m.library.remove(packId)),
+    saveThumb: (packId: string, clipId: string, frame: number, png: Uint8Array): Promise<void> =>
+      call((m) => m.library.saveThumb({ packId, clipId, frame, png }))
+  },
   shell: {
     showItemInFolder: (path: string): Promise<void> => call((m) => m.shell.showItemInFolder(path))
   },
@@ -100,7 +134,7 @@ export const api = {
 // ---------------------------------------------------------------------------------------------------
 // Jobs
 
-/** A job that ended with `@@error` (or failed to start). */
+/** A job that ended with `@@error` (or failed to start), or an IPC call rejected with a section 17 code. */
 export class JobError extends Error {
   constructor(
     readonly code: JobErrorCode,
@@ -187,7 +221,8 @@ export function runJob<T = unknown>(
       },
       (e: unknown) => {
         finish()
-        reject(new JobError('E_ARGS', cleanError(e)))
+        const { code, message } = parseIpcError(e)
+        reject(new JobError(code ?? 'E_ARGS', message))
       }
     )
   })

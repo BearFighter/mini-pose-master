@@ -2,13 +2,15 @@
 // End-to-end run of the real app through the Chrome DevTools Protocol (no dependencies: Node 24
 // has fetch and WebSocket). Builds the app, launches Electron with MPM_E2E=1, a temp user-data
 // folder and the installed Blender, then: new project -> import fixtures/out/apose/apose.fbx ->
-// find joints -> build rig -> test pose. Screenshots go to tests/e2e/out/*.png.
+// find joints -> build rig -> test pose -> import a synthetic BVH clip -> scrub, rotate, mirror,
+// undo -> save and reopen -> renderer vs Blender (dump_skinned) parity. Screenshots go to
+// tests/e2e/out/*.png.
 //
 //   node tests/e2e/drive.mjs [--no-build] [--keep]
 //
 // Env: MPM_BLENDER (default: the standard Blender 5.2 install path), MPM_E2E_PORT (default 9333).
 import { spawn, spawnSync } from 'node:child_process'
-import { createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createWriteStream, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
@@ -209,6 +211,87 @@ function killTree(child) {
 }
 
 // ---------------------------------------------------------------------------------------------------
+// Pose step helpers
+
+/** Waits until the viewer has shown a new pose (viewer.poseSeq increased), then a little more. */
+async function waitPose(cdp) {
+  const before = await cdp.evaluate('window.__mpmTest.state().viewer.poseSeq')
+  await cdp
+    .waitFor(`window.__mpmTest.state().viewer.poseSeq > ${before} && window.__mpmTest.state().viewer.pose === 'pose'`, 'the posed rig', 10_000)
+    .catch(() => {}) // the pose may already have been shown before `before` was read
+  await sleep(500)
+}
+
+async function waitUntil(check, what, timeoutMs) {
+  const end = Date.now() + timeoutMs
+  while (!check()) {
+    if (Date.now() > end) throw new Error(`timed out waiting for ${what}`)
+    await sleep(250)
+  }
+}
+
+// Synthetic BVH: the Bandai-style skeleton of tests/ts/main/libraryHelpers.ts (original, no
+// third-party data), 60 frames at 15 fps: the left arm rises over 10 frames, then waves.
+const BVH_SKEL = [
+  ['Hips', null, [0, 0, 0]],
+  ['Spine', 'Hips', [0, 10, 0]],
+  ['Chest', 'Spine', [0, 25, 0]],
+  ['Neck', 'Chest', [0, 20, 0]],
+  ['Head', 'Neck', [0, 8, 0]],
+  ['Shoulder_L', 'Chest', [5, 18, 0]],
+  ['UpperArm_L', 'Shoulder_L', [12, 0, 0]],
+  ['LowerArm_L', 'UpperArm_L', [28, 0, 0]],
+  ['Hand_L', 'LowerArm_L', [25, 0, 0]],
+  ['Shoulder_R', 'Chest', [-5, 18, 0]],
+  ['UpperArm_R', 'Shoulder_R', [-12, 0, 0]],
+  ['LowerArm_R', 'UpperArm_R', [-28, 0, 0]],
+  ['Hand_R', 'LowerArm_R', [-25, 0, 0]],
+  ['UpperLeg_L', 'Hips', [9, -2, 0]],
+  ['LowerLeg_L', 'UpperLeg_L', [0, -43, 0]],
+  ['Foot_L', 'LowerLeg_L', [0, -42, 0]],
+  ['Toes_L', 'Foot_L', [0, -8, 12]],
+  ['UpperLeg_R', 'Hips', [-9, -2, 0]],
+  ['LowerLeg_R', 'UpperLeg_R', [0, -43, 0]],
+  ['Foot_R', 'LowerLeg_R', [0, -42, 0]],
+  ['Toes_R', 'Foot_R', [0, -8, 12]]
+]
+const BVH_ENDS = { Head: [0, 20, 0], Hand_L: [9, 0, 0], Hand_R: [-9, 0, 0], Toes_L: [0, 0, 6], Toes_R: [0, 0, 6] }
+
+function syntheticWaveBvh() {
+  const kids = new Map()
+  for (const [name, parent] of BVH_SKEL) kids.set(parent, [...(kids.get(parent) ?? []), name])
+  const offset = new Map(BVH_SKEL.map(([name, , o]) => [name, o]))
+  const lines = ['HIERARCHY']
+  const order = []
+  const emit = (name, depth) => {
+    order.push(name)
+    const pad = '  '.repeat(depth)
+    lines.push(`${pad}${depth === 0 ? 'ROOT' : 'JOINT'} ${name}`, `${pad}{`, `${pad}  OFFSET ${offset.get(name).join(' ')}`)
+    lines.push(
+      pad + '  ' + (depth === 0 ? 'CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation' : 'CHANNELS 3 Zrotation Xrotation Yrotation')
+    )
+    for (const kid of kids.get(name) ?? []) emit(kid, depth + 1)
+    const end = BVH_ENDS[name]
+    if (end) lines.push(`${pad}  End Site`, `${pad}  {`, `${pad}    OFFSET ${end.join(' ')}`, `${pad}  }`)
+    lines.push(`${pad}}`)
+  }
+  emit('Hips', 0)
+  const frames = 60
+  lines.push('MOTION', `Frames: ${frames}`, `Frame Time: ${(1 / 15).toFixed(7)}`)
+  for (let f = 0; f < frames; f++) {
+    const rise = Math.min(1, f / 10)
+    const vals = new Map(order.map((n) => [n, [0, 0, 0]]))
+    vals.get('UpperArm_L')[0] = -80 + 130 * rise
+    vals.get('LowerArm_L')[0] = rise * (35 + 30 * Math.sin((2 * Math.PI * f) / 12))
+    vals.get('UpperArm_R')[0] = 80
+    const row = [0, 95, 0]
+    for (const n of order) row.push(...vals.get(n))
+    lines.push(row.map((v) => v.toFixed(5)).join(' '))
+  }
+  return lines.join('\n') + '\n'
+}
+
+// ---------------------------------------------------------------------------------------------------
 // The run
 
 async function main() {
@@ -229,6 +312,7 @@ async function main() {
   const child = launch(userData, path.join(OUT, 'electron.log'))
   let cdp = null
   let ok = false
+  let parity = null
   const watchdog = setTimeout(() => {
     console.error(`[e2e] FAIL: the run took longer than ${RUN_TIMEOUT_MS / 60000} min`)
     killTree(child)
@@ -299,21 +383,92 @@ async function main() {
     await sleep(500)
     await cdp.screenshot('03-rig-test-pose.png')
 
-    // Leave cleanly: nothing unsaved.
+    // --- Pose step (WP8c)
+    state = await cdp.evaluate('window.__mpmTest.testPose(false)')
+    const bvh = path.join(tmp, 'dataset-1_wave-arm_normal_001.bvh')
+    writeFileSync(bvh, syntheticWaveBvh())
+    log('importClip', path.basename(bvh))
+    const imported = await cdp.evaluate(`window.__mpmTest.importClip(${JSON.stringify(bvh)})`)
+    assert(imported.packId === 'mine' && imported.clipIds.length === 1, `clip imported (${JSON.stringify(imported)})`)
+    const clipId = imported.clipIds[0]
+    state = await cdp.evaluate(`window.__mpmTest.selectClip('mine', ${JSON.stringify(clipId)})`)
+    assert(state.error === null, `no error after selecting the clip (${JSON.stringify(state.error)})`)
+    assert(state.step === 'pose' && state.library.loadedClip === `mine/${clipId}`, `clip loaded (${state.library.loadedClip})`)
+    assert(state.library.indexClips.includes(clipId), 'clip listed')
+    await waitPose(cdp)
+    // the clip row's thumbnail is made lazily; wait for it before the library screenshot
+    const thumbs = path.join(userData, 'library', 'packs', 'mine', 'thumbs')
+    await waitUntil(() => existsSync(thumbs) && readdirSync(thumbs).some((f) => f.endsWith('.png')), 'the clip thumbnail', 30_000)
+    await sleep(700)
+    await cdp.screenshot('04-library.png')
+
+    state = await cdp.evaluate('window.__mpmTest.scrubTo(40)')
+    assert(state.pose.inputs.source?.frame === 40, 'scrubbed to frame 40')
+    await waitPose(cdp)
+    await cdp.screenshot('05-scrubber.png')
+
+    state = await cdp.evaluate(`window.__mpmTest.rotateBone('spine', [0, 0, 1], 20)`)
+    assert(state.pose.inputs.edits.length === 1 && state.pose.selected === 'spine', 'spine rotated and selected')
+    await waitPose(cdp)
+    await cdp.screenshot('06-gizmo.png')
+
+    state = await cdp.evaluate('window.__mpmTest.toggleMirror()')
+    assert(state.pose.inputs.mirrored === true, 'mirrored')
+    await cdp.evaluate('window.__mpmTest.selectBone(null)')
+    await waitPose(cdp)
+    await cdp.screenshot('07-mirrored.png')
+
+    state = await cdp.evaluate('window.__mpmTest.undo()')
+    assert(state.pose.inputs.mirrored === false && state.pose.inputs.edits.length === 1, 'undo restored the unmirrored pose')
+    const posed = await cdp.evaluate('window.__mpmTest.poseState()')
+
+    // Save, reopen: rigDraft markers, the rig and the pose come back.
     state = await cdp.evaluate('window.__mpmTest.save()')
     assert(state.project.dirty === false, 'saved')
     const markerCount = state.markers
+    const savedPose = JSON.parse(readFileSync(path.join(projectDir, 'E2E Fixture.mposer'), 'utf8')).pose
+    assert(savedPose && savedPose.rig_hash === state.rig.hash, 'project.pose saved with the rig hash')
+    assert(JSON.stringify(savedPose.provenance) === JSON.stringify(posed.provenance), 'saved provenance')
 
-    // Reopen the project: rigDraft markers and the rig come back.
     state = await cdp.evaluate(`window.__mpmTest.openProject(${JSON.stringify(projectDir)})`)
     assert(state.project.dirty === false && state.markers === markerCount, `markers restored from rigDraft (${state.markers})`)
-    assert(state.project.rig?.hash === state.rig.hash || state.rig.hash === null, 'project.rig kept')
     await cdp.waitFor('window.__mpmTest.state().rig.loaded', 'the reopened rig', 60_000)
     state = await cdp.evaluate('window.__mpmTest.state()')
     assert(state.rig.hash === state.project.rig.hash, 'reopened rig matches project.rig')
     assert(state.error === null, `no error after reopening (${JSON.stringify(state.error)})`)
+    assert(state.pose.notice === null, `no pose notice (${state.pose.notice})`)
+    const restored = await cdp.evaluate('window.__mpmTest.poseState()')
+    assert(JSON.stringify(restored.provenance) === JSON.stringify(savedPose.provenance), 'provenance restored')
+    let worstDelta = 0
+    for (const [k, q] of Object.entries(savedPose.deltas)) {
+      for (let n = 0; n < 4; n++) worstDelta = Math.max(worstDelta, Math.abs(q[n] - restored.deltas[k][n]))
+    }
+    assert(worstDelta < 1e-6, `deltas restored within 1e-6 (${worstDelta})`)
+    log(`pose restored: provenance equal, worst delta difference ${worstDelta.toExponential(2)}`)
+
+    // App <-> Blender parity: the renderer's posed vertices against the dump_skinned job.
+    await waitPose(cdp)
+    const sampled = await cdp.evaluate('window.__mpmTest.posedSample(500)')
+    const count = Object.values(sampled.sample).reduce((n, v) => n + v.length, 0)
+    log(`dump_skinned with ${count} sampled vertices`)
+    const dumped = await cdp.evaluate(`window.__mpmTest.dumpSkinned(${JSON.stringify(sampled.sample)})`)
+    assert(!dumped.error, `dump_skinned ran (${JSON.stringify(dumped.error)})`)
+    let worst = 0
+    for (const [mesh, idx] of Object.entries(sampled.sample)) {
+      const engine = dumped.meshes[mesh]
+      assert(engine && JSON.stringify(engine.indices) === JSON.stringify(idx), `engine returned mesh ${mesh}`)
+      idx.forEach((_v, k) => {
+        const a = sampled.positions[mesh][k]
+        const b = engine.positions[k]
+        worst = Math.max(worst, Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]))
+      })
+    }
+    log(`parity: max vertex difference ${worst.toExponential(3)} m over ${count} vertices`)
+    assert(count >= 450, `about 500 vertices sampled (${count})`)
+    assert(worst < 1e-4, `renderer vs Blender under 1e-4 m (${worst})`)
+    parity = { worst, count }
     ok = true
-    log('PASS')
+    log(`PASS (parity ${parity.worst.toExponential(3)} m)`)
   } catch (e) {
     if (cdp) {
       const state = await cdp.evaluate('JSON.stringify(window.__mpmTest.state(), null, 1)', 5000).catch(() => null)

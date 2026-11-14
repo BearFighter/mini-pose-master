@@ -18,7 +18,6 @@ import {
   suggestMapping
 } from '../../../src/renderer/store/actions'
 import { appendTail, LOG_TAIL_MAX } from '../../../src/renderer/store/jobs'
-import { UNDO_MAX } from '../../../src/renderer/store/pose'
 import { editsFromMapping, MAPPABLE_BONES, mappingForJob } from '../../../src/renderer/store/rig'
 import type { ImportJobResult, RigJobResult, SuggestMarkersResult } from '../../../src/shared/jobResults'
 import type { MarkerMap, ProjectData } from '../../../src/shared/project'
@@ -131,7 +130,7 @@ describe('rig slice', () => {
   })
 })
 
-describe('jobs, pose and ui slices', () => {
+describe('jobs and ui slices', () => {
   it('keeps the last 500 log lines', () => {
     for (let i = 0; i < LOG_TAIL_MAX + 20; i++) S().appendLog(`line ${i}`)
     expect(S().log.length).toBe(LOG_TAIL_MAX)
@@ -150,15 +149,6 @@ describe('jobs, pose and ui slices', () => {
     S().setError({ code: 'E_IO', message: 'disk full' })
     S().dismissError()
     expect(S().error).toBeNull()
-  })
-
-  it('pose undo/redo is capped at 100', () => {
-    for (let i = 0; i < UNDO_MAX + 5; i++) S().setPose({ deltas: { '0': [1, 0, 0, 0] }, rootOffset: [i, 0, 0], provenance: null })
-    expect(S().undo.length).toBe(UNDO_MAX)
-    S().undoPose()
-    expect(S().rootOffset[0]).toBe(UNDO_MAX + 3)
-    S().redoPose()
-    expect(S().rootOffset[0]).toBe(UNDO_MAX + 4)
   })
 
   it('focus requests get increasing sequence numbers', () => {

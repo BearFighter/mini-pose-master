@@ -23,15 +23,29 @@ export interface FocusRequest {
   seq: number
 }
 
+/** What the Pose step's gizmo does: rotate the selected bone, or move the hand (reach). */
+export type PoseTool = 'rotate' | 'reach'
+
 export interface UiSlice {
   step: Step
-  /** Selected marker name. */
+  /** Selected marker name (Rig step). */
   selection: string | null
+  /** Selected bone, canonical name (Pose step). */
+  boneSelection: string | null
+  poseTool: PoseTool
+  /** "Rotate bone only": edits with chain = false. */
+  boneOnly: boolean
   focus: FocusRequest | null
   showBlenderSetup: boolean
   logOpen: boolean
+  /** Bumped to ask the viewer to frame the posed rig (a new clip was picked). */
+  frameSeq: number
+  requestFrame(): void
   setStep(step: Step): void
   select(name: string | null): void
+  selectBone(name: string | null): void
+  setPoseTool(tool: PoseTool): void
+  setBoneOnly(on: boolean): void
   requestFocus(center: [number, number, number], radius: number, keepDirection?: boolean): void
   setShowBlenderSetup(show: boolean): void
   setLogOpen(open: boolean): void
@@ -40,11 +54,20 @@ export interface UiSlice {
 export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   step: 'import',
   selection: null,
+  boneSelection: null,
+  poseTool: 'rotate',
+  boneOnly: false,
   focus: null,
   showBlenderSetup: false,
   logOpen: false,
+  frameSeq: 0,
+  requestFrame: () => set({ frameSeq: get().frameSeq + 1 }),
   setStep: (step) => set({ step }),
   select: (selection) => set({ selection }),
+  selectBone: (boneSelection) =>
+    set({ boneSelection, gestureBone: null, ...(boneSelection && /^hand\.[LR]$/.test(boneSelection) ? {} : { poseTool: 'rotate' as PoseTool }) }),
+  setPoseTool: (poseTool) => set({ poseTool }),
+  setBoneOnly: (boneOnly) => set({ boneOnly }),
   requestFocus: (center, radius, keepDirection = true) =>
     set({ focus: { center, radius, keepDirection, seq: (get().focus?.seq ?? 0) + 1 } }),
   setShowBlenderSetup: (showBlenderSetup) => set({ showBlenderSetup }),

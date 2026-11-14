@@ -587,7 +587,9 @@ Slices:
 - `app`: info, blender status, update state
 - `project`: dir, data, dirty
 - `rig`: rigJson, markers, glbUrl
-- `pose`: deltas by bone index, root offset, provenance, undo/redo stacks (max 100)
+- `pose`: the §13 inputs (source clip and frame, mirrored, planted, edits) with undo/redo stacks of
+  input snapshots (max 100); `deltas` are derived with `composePose`, never stored
+- `library`: packs, the selected pack's index, the clip filter, the loaded clip, install progress
 - `hands`: L and R hand poses, locked
 - `weapons`: entries plus loaded geometry handles
 - `bake`: settings

@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// No project open: New (name + parent folder), Open (.mposer or folder), Recent projects.
+// No project open: New (name + parent folder), Open (.mposer file or project folder), Recent projects.
 import { useState } from 'react'
 import { api, cleanError } from '../api'
-import { basename, dirname } from '../lib/paths'
 import { loadRecent, removeRecent, type RecentProject } from '../lib/recent'
 import { chooseAndOpenProject, createProject, fire, openProject } from '../store/actions'
 import { useStore } from '../store'
@@ -10,7 +9,6 @@ import { useStore } from '../store'
 export function ProjectsScreen() {
   const [name, setName] = useState('My miniature')
   const [parent, setParent] = useState('')
-  const [folder, setFolder] = useState('')
   const [recent, setRecent] = useState<RecentProject[]>(() => loadRecent())
   const [localError, setLocalError] = useState<string | null>(null)
   const busy = useStore((s) => s.active !== null)
@@ -18,11 +16,18 @@ export function ProjectsScreen() {
   const browse = async () => {
     setLocalError(null)
     try {
-      // There is no folder picker in the IPC contract: a save dialog picks the location and the name.
-      const target = await api.dialog.saveFile(name.trim() || 'My miniature', [{ name: 'Project folder', extensions: ['*'] }])
-      if (!target) return
-      setParent(dirname(target))
-      setName(basename(target).replace(/\.mposer$/i, ''))
+      const dir = await api.dialog.openFolder('Where to create the project')
+      if (dir) setParent(dir)
+    } catch (e) {
+      setLocalError(cleanError(e))
+    }
+  }
+
+  const openFolder = async () => {
+    setLocalError(null)
+    try {
+      const dir = await api.dialog.openFolder('Open a project folder')
+      if (dir) fire(openProject(dir))
     } catch (e) {
       setLocalError(cleanError(e))
     }
@@ -67,16 +72,10 @@ export function ProjectsScreen() {
             <button onClick={() => fire(chooseAndOpenProject())} disabled={busy}>
               Open .mposer file…
             </button>
+            <button onClick={() => void openFolder()} disabled={busy}>
+              Open project folder…
+            </button>
           </div>
-          <label className="field">
-            <span>Or a project folder</span>
-            <div className="field-row">
-              <input value={folder} onChange={(e) => setFolder(e.target.value)} placeholder="Paste the project folder path" />
-              <button onClick={() => folder.trim() && fire(openProject(folder.trim()))} disabled={busy || !folder.trim()}>
-                Open
-              </button>
-            </div>
-          </label>
         </section>
 
         {localError && <p className="inline-error">{localError}</p>}

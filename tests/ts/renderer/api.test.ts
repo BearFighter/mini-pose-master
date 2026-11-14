@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // runJob event plumbing (src/renderer/api.ts) against a fake window.mpm.
 import { beforeEach, describe, expect, it } from 'vitest'
-import { api, cleanError, JobError, runJob, setJobProjectDir } from '../../../src/renderer/api'
+import { api, cleanError, JobError, parseIpcError, runJob, setJobProjectDir } from '../../../src/renderer/api'
 import type { JobProgressPayload } from '../../../src/shared/ipc'
 import { FakeMpm, installFakeMpm } from './fakeMpm'
 
@@ -105,5 +105,37 @@ describe('api wrappers', () => {
     await expect(api.project.create('Hero', 'C:/p')).rejects.toThrow(/^"Hero" already exists$/)
     expect(cleanError(new Error("Error invoking remote method 'mpm:blender.setPath': Error: No file at C:\\x"))).toBe('No file at C:\\x')
     expect(cleanError('plain text')).toBe('plain text')
+  })
+})
+
+describe('section 17 error codes', () => {
+  it('reads "<CODE>: message" behind the Electron prefix', () => {
+    expect(parseIpcError(new Error("Error invoking remote method 'mpm:project.save': Error: E_ARGS: dir is not the open project"))).toEqual({
+      code: 'E_ARGS',
+      message: 'dir is not the open project'
+    })
+    expect(parseIpcError(new Error("Error invoking remote method 'mpm:library.install': Error: E_IO: not enough free disk space"))).toEqual({
+      code: 'E_IO',
+      message: 'not enough free disk space'
+    })
+    expect(parseIpcError(new Error('E_NOT_A_CODE: x'))).toEqual({ code: null, message: 'E_NOT_A_CODE: x' })
+    expect(cleanError(new Error("Error invoking remote method 'mpm:x': Error: E_CANCELLED: bandai1: cancelled"))).toBe('bandai1: cancelled')
+  })
+
+  it('wrapped calls reject with a JobError carrying the code', async () => {
+    fake.api.library.remove = async () => {
+      throw new Error("Error invoking remote method 'mpm:library.remove': Error: E_ARGS: bandai1 is busy")
+    }
+    const err = await api.library.remove('bandai1').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(JobError)
+    expect((err as JobError).code).toBe('E_ARGS')
+    expect((err as JobError).message).toBe('bandai1 is busy')
+  })
+
+  it('a refused job.run keeps its code', async () => {
+    fake.runError = 'E_BLENDER_VERSION: Blender 5.2 was not found'
+    const err = await runJob('import', {}).catch((e: unknown) => e)
+    expect((err as JobError).code).toBe('E_BLENDER_VERSION')
+    expect((err as JobError).message).toBe('Blender 5.2 was not found')
   })
 })
