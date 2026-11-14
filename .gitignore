@@ -17,3 +17,4 @@ workspace/
 
 # reference copies of the prototype scripts (architect-provided, not published)
 prototype/
+tests/golden/
