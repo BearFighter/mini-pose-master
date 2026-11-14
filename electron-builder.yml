@@ -9,6 +9,10 @@ extraResources:
     to: engine
   - from: resources
     to: resources
+  - from: THIRD_PARTY.md
+    to: THIRD_PARTY.md
+  - from: LICENSE
+    to: LICENSE
 asar: true
 fileAssociations:
   - ext: mposer
@@ -20,10 +24,14 @@ win:
       arch:
         - x64
 nsis:
+  artifactName: Mini-Pose-Master-Setup-${version}.${ext}
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
+dmg:
+  artifactName: Mini-Pose-Master-${version}-${arch}.${ext}
 mac:
+  artifactName: Mini-Pose-Master-${version}-${arch}-mac.${ext}
   target:
     - target: dmg
       arch:
@@ -32,6 +40,8 @@ mac:
       arch:
         - arm64
   category: public.app-category.graphics-design
+appImage:
+  artifactName: Mini-Pose-Master-${version}.${ext}
 linux:
   target:
     - target: AppImage

@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "dist": "electron-vite build && electron-builder --publish never",
+    "third-party": "node scripts/third-party.mjs",
     "dist:dir": "electron-vite build && electron-builder --dir --publish never"
   },
   "dependencies": {
