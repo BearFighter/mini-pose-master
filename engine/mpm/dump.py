@@ -35,6 +35,8 @@ def dump(arm, meshes, rig, pose_state, sample):
         out["meshes"][o.name] = {"indices": idx, "positions": [[float(x) for x in co[i]] for i in idx]}
     for i, b in enumerate(arm.data.bones):
         pb = arm.pose.bones[b.name]
+        M = arm.matrix_world @ pb.matrix  # contracts section 12 attach frame for sockets
         out["bones"].append({"index": i, "head": [float(x) for x in arm.matrix_world @ pb.head],
-                             "tail": [float(x) for x in arm.matrix_world @ pb.tail]})
+                             "tail": [float(x) for x in arm.matrix_world @ pb.tail],
+                             "matrix": [[float(M[r][c]) for c in range(4)] for r in range(4)]})
     return out

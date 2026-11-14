@@ -503,7 +503,7 @@ Job types (args → result):
 | `rig` | `markers` or `mapping` (`{bone_name: canonical_name}`) | `rig_json`, `rig_glb`, `follow` stats; writes `rig/rig.blend` |
 | `convert_clip` | `source`, `files[]` and/or `archives[]` + `extract_dir` (+ `include[]`), `pack_dir`, `pack` (index metadata) | `clips[]` ids added, `failed[]` |
 | `convert_weapon` | `file` (project-relative), `unit_scale` (optional), `out` (optional) | `weapon_glb` (`weapons/<stem>.glb`, static, metres, own origin and axes kept), `objects[]`, `tri_count`, `bbox_m`, `dims_m`, `principal_axis`, `normal_maps[]`, `unit_scale_used`, `suggested_unit_scale` (0.01 / 0.001 when the file is > 30 m / > 300 m long), `warnings[]` |
-| `dump_skinned` | `pose`, `sample` (list of `_ORIG_INDEX`) | `positions` (same order, posed, before subdivision, metres) |
+| `dump_skinned` | `pose`, `sample` (list of `_ORIG_INDEX`) | `positions` (same order, posed, before subdivision, metres); `bones[]` `{index, head, tail, matrix}` with `matrix` = `pose_bone.matrix` as 4×4 rows (the §12 attach frame) |
 | `bake` | `name`, `pose` (§13), `weapons` (§12), `bake` (§14); `hands` is informational (finger deltas are in `pose`) | `stl`, `preview_glb` (metres, MP_Printable / MP_TooThin materials), `report` (make_printable fields + `summary`), `weapons[]` `{id, stl, report}` for separate weapons, `gates` `{follow, posed, faces, levels_lowered, voxel_coarsened_to}`, `detail`, `unit_mm`, `standing_mm`, `weights_transferred[]`; also writes `exports/report.json` |
 
 Error codes:
