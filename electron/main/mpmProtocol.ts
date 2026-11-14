@@ -37,9 +37,14 @@ export function resolveMpmUrl(url: string, roots: MpmRoots): string | null {
   const root = host === 'project' ? roots.project : host === 'library' ? roots.library : null
   if (!root) return null
 
+  // A query or fragment (the renderer's cache-busting `?v=...`) is not part of the file path.
+  let encoded = rest.slice(slash + 1)
+  const cut = encoded.search(/[?#]/)
+  if (cut >= 0) encoded = encoded.slice(0, cut)
+
   let rel: string
   try {
-    rel = decodeURIComponent(rest.slice(slash + 1))
+    rel = decodeURIComponent(encoded)
   } catch {
     return null
   }
@@ -51,9 +56,26 @@ export function resolveMpmUrl(url: string, roots: MpmRoots): string | null {
   return abs
 }
 
-/** Handler for protocol.handle('mpm', ...). Answers 403 for anything outside the roots. */
+/**
+ * The renderer page (file:// or the dev server) is another origin, so fetch() of mpm:// needs a CORS
+ * header (the scheme is registered with corsEnabled). Only the app's own windows can reach mpm://.
+ */
+const CORS_HEADERS = { 'Access-Control-Allow-Origin': '*' }
+
+/** Copies a response with the CORS header added. */
+export function withCors(res: Response): Response {
+  const headers = new Headers(res.headers)
+  for (const [k, v] of Object.entries(CORS_HEADERS)) headers.set(k, v)
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers })
+}
+
+/** Handler for protocol.handle('mpm', ...). Answers 403 for anything outside the roots, 404 for missing files. */
 export async function handleMpmRequest(request: Request): Promise<Response> {
   const file = resolveMpmUrl(request.url, getRoots())
-  if (file === null) return new Response('Forbidden', { status: 403 })
-  return net.fetch(pathToFileURL(file).toString())
+  if (file === null) return new Response('Forbidden', { status: 403, headers: CORS_HEADERS })
+  try {
+    return withCors(await net.fetch(pathToFileURL(file).toString()))
+  } catch {
+    return new Response('Not found', { status: 404, headers: CORS_HEADERS })
+  }
 }

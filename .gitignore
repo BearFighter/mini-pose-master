@@ -18,3 +18,5 @@ workspace/
 # reference copies of the prototype scripts (architect-provided, not published)
 prototype/
 tests/golden/
+# end-to-end run output (screenshots, logs)
+tests/e2e/out/

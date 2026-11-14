@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Job `import`: import a model, normalise it, make a proxy if dense, save rig/scene.blend."""
+import json
 import os
 import sys
 
@@ -45,6 +46,10 @@ def main(job):
         raise protocol.MpmError("E_IO", "cannot save scene.blend: %s" % e)
     protocol.progress("preview", 0.95, "exporting the preview")
     info["preview_glb"] = export_preview(rig_dir, proxy)
+    info["source_file"] = args["file"]
+    # Kept so a reopened project can show the summary (skeleton or not) without re-importing.
+    with open(os.path.join(rig_dir, "import.json"), "w", encoding="utf-8") as fh:
+        json.dump(info, fh, indent=1)
     return info
 
 

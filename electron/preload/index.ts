@@ -18,6 +18,8 @@ const api: MpmApi = {
   },
   dialog: {
     openFile: (args) => invoke('dialog.openFile', args),
+    openFiles: (args) => invoke('dialog.openFiles', args),
+    openFolder: (args) => invoke('dialog.openFolder', args),
     saveFile: (args) => invoke('dialog.saveFile', args)
   },
   project: {
@@ -33,9 +35,13 @@ const api: MpmApi = {
   },
   library: {
     list: () => invoke('library.list'),
-    install: (packId) => invoke('library.install', packId),
+    install: (args) => invoke('library.install', args),
     installFromFile: (args) => invoke('library.installFromFile', args),
-    importClip: (args) => invoke('library.importClip', args)
+    reconvert: (packId) => invoke('library.reconvert', packId),
+    importClip: (args) => invoke('library.importClip', args),
+    cancel: (packId) => invoke('library.cancel', packId),
+    remove: (packId) => invoke('library.remove', packId),
+    saveThumb: (args) => invoke('library.saveThumb', args)
   },
   shell: {
     showItemInFolder: (path) => invoke('shell.showItemInFolder', path)

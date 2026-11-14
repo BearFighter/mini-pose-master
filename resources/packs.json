@@ -1,0 +1,1110 @@
+{
+  "schema": "mpm.packs/1",
+  "converter_version": 1,
+  "packs": [
+    {
+      "id": "bandai1",
+      "title": "Bandai Namco Research Motion Dataset 1",
+      "source": "bandai",
+      "license": "CC BY-NC 4.0",
+      "license_url": "https://creativecommons.org/licenses/by-nc/4.0/",
+      "nc": true,
+      "exportable": true,
+      "attribution": "Bandai Namco Research Inc. — Bandai-Namco-Research-Motiondataset (dataset 1)",
+      "homepage": "https://github.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset",
+      "download": {
+        "files": [
+          {
+            "name": "dataset-1_bow_active_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bow_active_001.bvh",
+            "sha256": "dfca1bec17dbb0d9b105fb48d2ac35cd43961689704a1015694ddc66e05dac49",
+            "size": 162876
+          },
+          {
+            "name": "dataset-1_bow_angry_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bow_angry_001.bvh",
+            "sha256": "58eb125a58fa4339668dbb4965af935057cbbdd9daa325b8369ae2acea627f6b",
+            "size": 114940
+          },
+          {
+            "name": "dataset-1_bow_childish_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bow_childish_001.bvh",
+            "sha256": "c7a563c1696367851d635a0752be489704ec6d72ca33c9a10d7aa05a6ee7f81a",
+            "size": 125166
+          },
+          {
+            "name": "dataset-1_bow_chimpira_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bow_chimpira_001.bvh",
+            "sha256": "5aee31b7831464d27766b277981080f12fb3df119442fc8902108df0948b8862",
+            "size": 148328
+          },
+          {
+            "name": "dataset-1_bow_feminine_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bow_feminine_001.bvh",
+            "sha256": "0f701a2df34d251d03a5f1310d90a8c5394745021ecc708d4f90cb3cc76f957f",
+            "size": 270811
+          },
+          {
+            "name": "dataset-1_bow_giant_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bow_giant_001.bvh",
+            "sha256": "8babdb4cf2f8ca146e38ea83953232f99a2d26604ccdb6be9eb4f8135d8a1b9f",
+            "size": 154849
+          },
+          {
+            "name": "dataset-1_bow_happy_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bow_happy_001.bvh",
+            "sha256": "a619ac647ac4ef011cc5bf115ed37c359f1c42630b32a85fc0187ee19d48c501",
+            "size": 174053
+          },
+          {
+            "name": "dataset-1_bow_masculinity_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bow_masculinity_001.bvh",
+            "sha256": "197bb1ad63bd63c7d1e67514b16de1cb55925fd9d152ad231751243c3fdb4a20",
+            "size": 90589
+          },
+          {
+            "name": "dataset-1_bow_musical_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bow_musical_001.bvh",
+            "sha256": "f097ac0ead4c68e074406cad412d4f1cc1e7470021dbab88c9887d0de6118450",
+            "size": 195314
+          },
+          {
+            "name": "dataset-1_bow_normal_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bow_normal_001.bvh",
+            "sha256": "4e390b9c92caf7bb92b49bb0b5df72cf6e9f48900656b55a100a77b6bab0946b",
+            "size": 176667
+          },
+          {
+            "name": "dataset-1_bow_not-confident_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bow_not-confident_001.bvh",
+            "sha256": "63a73b1b3e340ba4d7e78b6a9d3716ac37414d542a6017ef8d32fb20eef5a575",
+            "size": 182400
+          },
+          {
+            "name": "dataset-1_bow_old_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bow_old_001.bvh",
+            "sha256": "ed5db7bd555fbf0f54c5dfcd486eede243f1daa9267f08f3e5afe1025dd769a6",
+            "size": 216938
+          },
+          {
+            "name": "dataset-1_bow_proud_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bow_proud_001.bvh",
+            "sha256": "cc0d5b99fbebfd4e6487b952cb4f788d5c53aa6c52e85e39b37e4a97f832ec69",
+            "size": 171765
+          },
+          {
+            "name": "dataset-1_bow_sad_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bow_sad_001.bvh",
+            "sha256": "89d16697d694befe693fc0296ab6c78952c2c94faacccc67bc232753288954f2",
+            "size": 276313
+          },
+          {
+            "name": "dataset-1_bow_tired_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bow_tired_001.bvh",
+            "sha256": "5b88224bce01b0594698f94157962a17490b4ab7cbd795d873154ab40a1b1eaa",
+            "size": 207581
+          },
+          {
+            "name": "dataset-1_bye_active_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bye_active_001.bvh",
+            "sha256": "8b8dfe1ff3041614c610a61df00eb704e24aa120a12c5721f217e3f15e864a8b",
+            "size": 232726
+          },
+          {
+            "name": "dataset-1_bye_angry_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bye_angry_001.bvh",
+            "sha256": "79e46492cc2de435dfdcd30ad7d91e3dd0efa7d8dbd915a937004ba5f8eb1e20",
+            "size": 139202
+          },
+          {
+            "name": "dataset-1_bye_childish_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bye_childish_001.bvh",
+            "sha256": "03dc69bb094e629932eba60615e2a4960b14c2a6738ceb84338499d95c26b977",
+            "size": 155646
+          },
+          {
+            "name": "dataset-1_bye_chimpira_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bye_chimpira_001.bvh",
+            "sha256": "27c6e5c885cb6d0acec174fec19d780ab22e61df48f19c566e3669e01952a199",
+            "size": 163822
+          },
+          {
+            "name": "dataset-1_bye_feminine_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bye_feminine_001.bvh",
+            "sha256": "893483a1a0911d12db91e2820c53d27957360de60d76fc1993903263e7952012",
+            "size": 405276
+          },
+          {
+            "name": "dataset-1_bye_giant_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bye_giant_001.bvh",
+            "sha256": "1af1000470240d86d446d1df5545fa496e5908e5f29e424e13afd8273213b811",
+            "size": 179845
+          },
+          {
+            "name": "dataset-1_bye_happy_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bye_happy_001.bvh",
+            "sha256": "3f58fb48932a047a35d5b7b2511dc02b80b51d3cbe8a07ac26f4ee885db9c472",
+            "size": 278851
+          },
+          {
+            "name": "dataset-1_bye_masculinity_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bye_masculinity_001.bvh",
+            "sha256": "319bf978ce55cc67468782be85d276ba9f346665142a66318b4949f013c1829b",
+            "size": 266036
+          },
+          {
+            "name": "dataset-1_bye_musical_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bye_musical_001.bvh",
+            "sha256": "42163371bc170223b651f25e46391d06f383abf3725e354f01062e520db34e8d",
+            "size": 234319
+          },
+          {
+            "name": "dataset-1_bye_normal_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bye_normal_001.bvh",
+            "sha256": "cf821ed70f42832e9b519103ffb5e0a0f458ab46582340071b8867a633e8ee4d",
+            "size": 143040
+          },
+          {
+            "name": "dataset-1_bye_not-confident_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bye_not-confident_001.bvh",
+            "sha256": "ba3cb19bd35c182ecc4644cab3e7e05f90d3ab34aa6681e86d3e789772eb7893",
+            "size": 260830
+          },
+          {
+            "name": "dataset-1_bye_old_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bye_old_001.bvh",
+            "sha256": "ff410d5a1eaeb284ea39aef95bd94b67048f84237ddc793bcd6417c9d6a09b0f",
+            "size": 177568
+          },
+          {
+            "name": "dataset-1_bye_proud_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bye_proud_001.bvh",
+            "sha256": "518c801cd5840d0cf7f782f9ca48a4c5bdce4ff5964027263141c9e0af4bae9e",
+            "size": 216609
+          },
+          {
+            "name": "dataset-1_bye_sad_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bye_sad_001.bvh",
+            "sha256": "9e5f92e877bead0c5ee2c7613dd1f9d966688ff70281b7bfc1fdb64aa50cc37a",
+            "size": 315487
+          },
+          {
+            "name": "dataset-1_bye_tired_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_bye_tired_001.bvh",
+            "sha256": "d6bff6c288b3e55a01337be416647885e3bf8e1f52e7ff1b628fdba19b4acf72",
+            "size": 263633
+          },
+          {
+            "name": "dataset-1_byebye_active_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_byebye_active_001.bvh",
+            "sha256": "f172cc1b5bb3487aa14032d8cf67d8477327e30bfac732bcbd96025bb701d094",
+            "size": 287364
+          },
+          {
+            "name": "dataset-1_byebye_angry_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_byebye_angry_001.bvh",
+            "sha256": "a86632662fbb927a52ed39837a2a3715753353a3900370af64eeb3a0d17ec210",
+            "size": 71712
+          },
+          {
+            "name": "dataset-1_byebye_childish_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_byebye_childish_001.bvh",
+            "sha256": "348b3a744a7f0ac98f6f7e31f9271f99c40c4f0d22d65021c71bb93639c9d7d9",
+            "size": 212671
+          },
+          {
+            "name": "dataset-1_byebye_chimpira_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_byebye_chimpira_001.bvh",
+            "sha256": "0f7989b14c6701e03bba487d614763c40aea0cd9990524a67f2ed1cb147d9b4c",
+            "size": 188178
+          },
+          {
+            "name": "dataset-1_byebye_feminine_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_byebye_feminine_001.bvh",
+            "sha256": "1778b5b3ae224c3a0432075ae57ff1e1dd70052a867a6b103ff8dbe1c7350406",
+            "size": 107283
+          },
+          {
+            "name": "dataset-1_byebye_giant_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_byebye_giant_001.bvh",
+            "sha256": "94364d200f3f34c3ecf40827f2017835b0ca54958617caf8152204261a5637c7",
+            "size": 293569
+          },
+          {
+            "name": "dataset-1_byebye_happy_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_byebye_happy_001.bvh",
+            "sha256": "c5d674446b9473cc54ed5c764c6fcb2689d191726079132eb504ec1826b228cc",
+            "size": 275865
+          },
+          {
+            "name": "dataset-1_byebye_masculinity_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_byebye_masculinity_001.bvh",
+            "sha256": "5b836e7af41332eb9eed9d3d0a55652e8ee77bfcdc8dbfd27233d22d18991525",
+            "size": 253966
+          },
+          {
+            "name": "dataset-1_byebye_musical_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_byebye_musical_001.bvh",
+            "sha256": "7d8366dd878aa91065738d7661ed56f9d4110ceaf3b5dcc59f7f1f1fb1b8df14",
+            "size": 197332
+          },
+          {
+            "name": "dataset-1_byebye_normal_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_byebye_normal_001.bvh",
+            "sha256": "f07fb9889b823a6efbbc7d5439c674cfd0540081c484ed4c6ec137f2b55f666c",
+            "size": 156102
+          },
+          {
+            "name": "dataset-1_byebye_not-confident_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_byebye_not-confident_001.bvh",
+            "sha256": "c4d11e88ab72fa3796c483154e029aa12c64311a0c798e9ba07f3b79e64ca990",
+            "size": 176976
+          },
+          {
+            "name": "dataset-1_byebye_old_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_byebye_old_001.bvh",
+            "sha256": "c8d1139e54b69db95c64a58119bcaf0162de3bd57294da1b804d14079dfa70eb",
+            "size": 154167
+          },
+          {
+            "name": "dataset-1_byebye_proud_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_byebye_proud_001.bvh",
+            "sha256": "6bf32f5ec4c802a7b04762908c878f92c0652182bfceca7a9590cf9bbf1e150f",
+            "size": 101120
+          },
+          {
+            "name": "dataset-1_byebye_sad_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_byebye_sad_001.bvh",
+            "sha256": "b5e1038e70ce65851b3d2ba0f6e3247ca38f728de7ec6266a7251155f2ebaa25",
+            "size": 292132
+          },
+          {
+            "name": "dataset-1_byebye_tired_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_byebye_tired_001.bvh",
+            "sha256": "3ddc0c2c7853b2328abbb96f0dd6d6156377ff4511e50c2afcd3c7d2a78ffcec",
+            "size": 379395
+          },
+          {
+            "name": "dataset-1_call_normal_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_call_normal_001.bvh",
+            "sha256": "7f12a26a95051efe5ec04f277bdd4ed6a9a9f6141faeefe3511efcb729e79765",
+            "size": 217620
+          },
+          {
+            "name": "dataset-1_call_normal_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_call_normal_002.bvh",
+            "sha256": "664689830ff163f7c03859d48f5f505ecb2698fef3c69529fd6aab4504c566e8",
+            "size": 204879
+          },
+          {
+            "name": "dataset-1_dance-long_normal_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_dance-long_normal_001.bvh",
+            "sha256": "991763028b881f3a40fd603a26a2524cd14712524f6287a298920ccf3248c990",
+            "size": 5800141
+          },
+          {
+            "name": "dataset-1_dance-short_normal_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_dance-short_normal_001.bvh",
+            "sha256": "a9bef1cd697e4274bc1e773c2eb30f9b2c525f1fd57deaf788a6f63ce87fa63f",
+            "size": 2381120
+          },
+          {
+            "name": "dataset-1_dash_active_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_dash_active_001.bvh",
+            "sha256": "135e0a02201e6502feccfb603d2cd6ab30ab98139235941c7eee24ad96827ff0",
+            "size": 108310
+          },
+          {
+            "name": "dataset-1_dash_angry_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_dash_angry_001.bvh",
+            "sha256": "830cf56c4c90e61d35be01e71c9efd79ec1ab37543edff788ea7e0d23b16c773",
+            "size": 94718
+          },
+          {
+            "name": "dataset-1_dash_childish_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_dash_childish_001.bvh",
+            "sha256": "f3ecaee9d9f6881ce988bb1e5ed6b1103d0e5f09d48f6511124bb294c5b98746",
+            "size": 95976
+          },
+          {
+            "name": "dataset-1_dash_chimpira_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_dash_chimpira_001.bvh",
+            "sha256": "4fd4a5d0c7b874881dd070aa10abcdbce9c9ee9ee008eee1bfe2cbd648d993db",
+            "size": 88693
+          },
+          {
+            "name": "dataset-1_dash_feminine_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_dash_feminine_001.bvh",
+            "sha256": "8100314a07389f0207dee870f7e6e95a41d6e8fb6866f83dc7d036a795688048",
+            "size": 122925
+          },
+          {
+            "name": "dataset-1_dash_giant_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_dash_giant_001.bvh",
+            "sha256": "5f7a919067ce0bab028ce0147e07904fcd87ec991ced3da0d2118a39ac177f32",
+            "size": 86328
+          },
+          {
+            "name": "dataset-1_dash_happy_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_dash_happy_001.bvh",
+            "sha256": "8e6a5f7ec38e6d68540cc0779e5028b06678da9acb2d6ed5148855ae3a324698",
+            "size": 147636
+          },
+          {
+            "name": "dataset-1_dash_masculinity_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_dash_masculinity_001.bvh",
+            "sha256": "be62a2369c845b30a3a3f922f081623c1b8b8082c1bca3ae38776ae8ec789de8",
+            "size": 90023
+          },
+          {
+            "name": "dataset-1_dash_musical_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_dash_musical_001.bvh",
+            "sha256": "839ff707214fd4fbb11d073aa30430651bdeb16a69679b00210a280b7090e512",
+            "size": 86193
+          },
+          {
+            "name": "dataset-1_dash_normal_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_dash_normal_001.bvh",
+            "sha256": "8d83d596135155032263e87efaabab7e1956a7b3a5ef4b6e4b2c059b68c9721f",
+            "size": 28856
+          },
+          {
+            "name": "dataset-1_dash_not-confident_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_dash_not-confident_001.bvh",
+            "sha256": "0cc2713c90c6760aa5dcdef8bc9f556cd110eb72c3e6a733dfed00383b9118c1",
+            "size": 125708
+          },
+          {
+            "name": "dataset-1_dash_old_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_dash_old_001.bvh",
+            "sha256": "976f2c929bb6e61cd49545a6c6273ef0cb93aa9d228a61f30481a4a60296f318",
+            "size": 108550
+          },
+          {
+            "name": "dataset-1_dash_proud_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_dash_proud_001.bvh",
+            "sha256": "9a3368f32cf8bbd60446f0199425f5a2cc1cd0292c107412fe5d157e499bb1c5",
+            "size": 132936
+          },
+          {
+            "name": "dataset-1_dash_sad_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_dash_sad_001.bvh",
+            "sha256": "583f0c5f178be95024086caafd5004cfa00f59185cfd150e122ac04d2c69eea8",
+            "size": 103199
+          },
+          {
+            "name": "dataset-1_dash_tired_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_dash_tired_001.bvh",
+            "sha256": "3d006956b32dbe230e162ffc0e2104e5d41bbb8bd537c67d5fa4ee340358589d",
+            "size": 118175
+          },
+          {
+            "name": "dataset-1_guide_active_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_guide_active_001.bvh",
+            "sha256": "1249b64fe678a83ce48a6cb81c5e353e2d887d2775d90a727ed757eda4138ac6",
+            "size": 176479
+          },
+          {
+            "name": "dataset-1_guide_angry_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_guide_angry_001.bvh",
+            "sha256": "049efe4527b6659f1c9b7fbae10a4eb574b95552ad3dbf90279f5e7eeb7dfd6c",
+            "size": 139649
+          },
+          {
+            "name": "dataset-1_guide_childish_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_guide_childish_001.bvh",
+            "sha256": "64f1a4fba94a154ff93a912feb1b3ea417f68948c506332b2675dcfa2a2a22d9",
+            "size": 151108
+          },
+          {
+            "name": "dataset-1_guide_chimpira_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_guide_chimpira_001.bvh",
+            "sha256": "35ef97fdb15add64e72c59394ff67feff98917aec30af2b09d61c3be05463b41",
+            "size": 232831
+          },
+          {
+            "name": "dataset-1_guide_feminine_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_guide_feminine_001.bvh",
+            "sha256": "e6117a3a8f9db004483f3c5595db79624ef78705c0940e6d68bc35416046b7e4",
+            "size": 371659
+          },
+          {
+            "name": "dataset-1_guide_giant_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_guide_giant_001.bvh",
+            "sha256": "c45109b4df39087a8350fc65f194939f50304731e5e9bd33e2131bf7b11ab10e",
+            "size": 204514
+          },
+          {
+            "name": "dataset-1_guide_happy_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_guide_happy_001.bvh",
+            "sha256": "dfaedb1170fea8dea5c9d8e57dc49b48c7a2ea5e82ae00b680373d9119eeb298",
+            "size": 133493
+          },
+          {
+            "name": "dataset-1_guide_masculinity_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_guide_masculinity_001.bvh",
+            "sha256": "62b561118b40200d8439e5358facff65bcbdb182adab52fc09a4b8b511f0ab87",
+            "size": 191962
+          },
+          {
+            "name": "dataset-1_guide_musical_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_guide_musical_001.bvh",
+            "sha256": "572292b8c4d83791add729e3b5db2aaffbce28317ccf76458a72c24637d0b013",
+            "size": 248639
+          },
+          {
+            "name": "dataset-1_guide_normal_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_guide_normal_001.bvh",
+            "sha256": "30069344e592775775a5868cf625b06d902bea61ca6b68ffae3b6d0560306ad9",
+            "size": 112139
+          },
+          {
+            "name": "dataset-1_guide_not-confident_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_guide_not-confident_001.bvh",
+            "sha256": "0906e9a7901a99d63d24867c6332f3b16cc974254334e87388eb2c337d3785ed",
+            "size": 203792
+          },
+          {
+            "name": "dataset-1_guide_old_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_guide_old_001.bvh",
+            "sha256": "ac26765b8c5269ef009ba09ed82137a63dab1c122e824ed976d7adc9d0856886",
+            "size": 269936
+          },
+          {
+            "name": "dataset-1_guide_proud_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_guide_proud_001.bvh",
+            "sha256": "088f262fe78f8d9e3ffa4ccd4ca84051b7ab26367426816c197fa9801fcf8005",
+            "size": 142561
+          },
+          {
+            "name": "dataset-1_guide_sad_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_guide_sad_001.bvh",
+            "sha256": "15b5ac71e927e410d8c999a82aa79d0fc210490dad4d6deae4d60fc5cbbc9901",
+            "size": 204575
+          },
+          {
+            "name": "dataset-1_guide_tired_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_guide_tired_001.bvh",
+            "sha256": "9c24e0b6b3ee6d22fbe7674fd1a54a4b7497a0b60e3c56181a2f3b1d5cbdc074",
+            "size": 105071
+          },
+          {
+            "name": "dataset-1_kick_normal_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_kick_normal_001.bvh",
+            "sha256": "1194a1dae534ee065d4e6eed68c21d7437b1bb81d15754bcabef32185b200911",
+            "size": 442941
+          },
+          {
+            "name": "dataset-1_punch_normal_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_punch_normal_001.bvh",
+            "sha256": "000e0093365b7e2a4e6dc7e0fbde15a70d2959630b7bd12750762d1c14e7c652",
+            "size": 278735
+          },
+          {
+            "name": "dataset-1_punch_normal_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_punch_normal_002.bvh",
+            "sha256": "64f14b29c37aedb9b609e8af1cff764a5a34d1cde95be8bea6e258d350d16db4",
+            "size": 352487
+          },
+          {
+            "name": "dataset-1_respond_normal_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_respond_normal_001.bvh",
+            "sha256": "18b718f955b0abee378ce0f7229f4dbf5ad144d9fce541c4a9e4de13b0c21221",
+            "size": 137321
+          },
+          {
+            "name": "dataset-1_run_active_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_run_active_001.bvh",
+            "sha256": "390f6b4491760bbd0882bb7e9daf1b728a4fa8caeca851f60181a5f5cdc2260c",
+            "size": 92295
+          },
+          {
+            "name": "dataset-1_run_angry_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_run_angry_001.bvh",
+            "sha256": "19dbaac8abf162f43d026b88711078ca2467e9d3b5bc2373b2520d59a8233822",
+            "size": 98348
+          },
+          {
+            "name": "dataset-1_run_childish_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_run_childish_001.bvh",
+            "sha256": "8ae5d5ebcb18422e9115b8c57f419d17fbea48ec25793b44f3a4deaa4b4ead9f",
+            "size": 140323
+          },
+          {
+            "name": "dataset-1_run_chimpira_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_run_chimpira_001.bvh",
+            "sha256": "af66e2263128e13905f76a6a967b90f14ee1509629d05bcb0985034dd9d8daa5",
+            "size": 89846
+          },
+          {
+            "name": "dataset-1_run_feminine_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_run_feminine_001.bvh",
+            "sha256": "27c9e6b67e7da608613917dc7c44776634fbfc47673851df70a4b0a674d85ce0",
+            "size": 151184
+          },
+          {
+            "name": "dataset-1_run_giant_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_run_giant_001.bvh",
+            "sha256": "a98f478b508afbaa11a90d69e0c2f7dd2df585af88d8446b4d54fd8a4b4bd184",
+            "size": 100926
+          },
+          {
+            "name": "dataset-1_run_happy_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_run_happy_001.bvh",
+            "sha256": "fa7d080e56a9578385a90efa2ffd316a3bf71a92e9401f17f0ce58de91b2311f",
+            "size": 176105
+          },
+          {
+            "name": "dataset-1_run_masculinity_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_run_masculinity_001.bvh",
+            "sha256": "8e1493722ec3ac75a49814581eb3960835dbaecc11d1a239828bd47218f95970",
+            "size": 76483
+          },
+          {
+            "name": "dataset-1_run_musical_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_run_musical_001.bvh",
+            "sha256": "f78bb2ac4bce34027bba5678ba0665c8766a4efe6db9ce663860516bc48aef02",
+            "size": 92701
+          },
+          {
+            "name": "dataset-1_run_normal_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_run_normal_001.bvh",
+            "sha256": "93cbc794bf178ce7d98a1a95efdee52699b4c0cdfcd9ec619f7ae9ec7bda024f",
+            "size": 33946
+          },
+          {
+            "name": "dataset-1_run_not-confident_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_run_not-confident_001.bvh",
+            "sha256": "e6ad22c3cc4f8a99a94230473fc8c548be8bae601bfb2f075b6214c3c1f697e8",
+            "size": 177162
+          },
+          {
+            "name": "dataset-1_run_old_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_run_old_001.bvh",
+            "sha256": "1985df3f564adc8de91bff9628978c2127b2fc3adcb1a791aac468c6b7bdc12f",
+            "size": 129505
+          },
+          {
+            "name": "dataset-1_run_proud_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_run_proud_001.bvh",
+            "sha256": "9e3bdcd31ef3e607a55748491a8371d94a879b67617ff9a6e8aed4ef921dd9fb",
+            "size": 177002
+          },
+          {
+            "name": "dataset-1_run_sad_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_run_sad_001.bvh",
+            "sha256": "b044cfb641ce033ab850f909dbc029d65fb72792b7873159fe8b3516f00855dd",
+            "size": 176705
+          },
+          {
+            "name": "dataset-1_run_tired_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_run_tired_001.bvh",
+            "sha256": "af362d4be32f9401ed1ff18b2116ffbeca9ff16329a7cd2e3178307b48cf7de1",
+            "size": 167446
+          },
+          {
+            "name": "dataset-1_slash_normal_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_slash_normal_001.bvh",
+            "sha256": "b2fea21820d898cee5229829268b861d783041317bc560ea977d5789fd630d6d",
+            "size": 501353
+          },
+          {
+            "name": "dataset-1_slash_normal_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_slash_normal_002.bvh",
+            "sha256": "bdf3d00a1f589a909e87b77e98bd43c81aba7f8fe0486d1f9bb8f26fbda901f3",
+            "size": 592983
+          },
+          {
+            "name": "dataset-1_walk-back_active_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-back_active_001.bvh",
+            "sha256": "ffd3efe4a814a3bdf0aeb3d89676c2f6f52242de97c6cb1f540fffdc6f9365c6",
+            "size": 258294
+          },
+          {
+            "name": "dataset-1_walk-back_angry_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-back_angry_001.bvh",
+            "sha256": "fbf24fa41d45f3532bc35bb66c8761738129fbf0fd29b490de0e4296c7e65a28",
+            "size": 319360
+          },
+          {
+            "name": "dataset-1_walk-back_childish_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-back_childish_001.bvh",
+            "sha256": "866c412dad229ad4bca48c60208b1aaf982d8c89ca55cde7f273b7a8d7c4af23",
+            "size": 298278
+          },
+          {
+            "name": "dataset-1_walk-back_chimpira_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-back_chimpira_001.bvh",
+            "sha256": "7a8fad58c78d326e3cc960d9aebafc95167dbf48c833e8afc3022577b977fdac",
+            "size": 231865
+          },
+          {
+            "name": "dataset-1_walk-back_feminine_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-back_feminine_001.bvh",
+            "sha256": "05fb64f6124cba7a54b365e6d71ff2a0a43b4ee101357037209d90f54e4aabf5",
+            "size": 390795
+          },
+          {
+            "name": "dataset-1_walk-back_giant_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-back_giant_001.bvh",
+            "sha256": "5f591315b2fc39b3d7e40ccce8ab279dee9c860d7583f6b31d65726301c5b9ef",
+            "size": 292645
+          },
+          {
+            "name": "dataset-1_walk-back_happy_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-back_happy_001.bvh",
+            "sha256": "c0801451f062c035366c89ad5756ba07c0fd858d0ebab4ab3fb0493f2b0fed0c",
+            "size": 268226
+          },
+          {
+            "name": "dataset-1_walk-back_masculinity_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-back_masculinity_001.bvh",
+            "sha256": "86d5773be71b9f51c8465580c050746c556dd8875868303571b7943e0bbbe0a9",
+            "size": 228604
+          },
+          {
+            "name": "dataset-1_walk-back_musical_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-back_musical_001.bvh",
+            "sha256": "2273324b9f9d1e51742883dff429bfb4c73897ed6bc4e5accdce884ce4ca6296",
+            "size": 250979
+          },
+          {
+            "name": "dataset-1_walk-back_normal_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-back_normal_001.bvh",
+            "sha256": "4c182559dbd28e4ba485f664dea49817a30fc0acde29b482f1baaeff4fa80397",
+            "size": 42704
+          },
+          {
+            "name": "dataset-1_walk-back_not-confident_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-back_not-confident_001.bvh",
+            "sha256": "decbb5b489fbe5214a6fccbc888c852cdb1116336943ba05f87c78cefb0a86fc",
+            "size": 451626
+          },
+          {
+            "name": "dataset-1_walk-back_old_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-back_old_001.bvh",
+            "sha256": "78b1b5094e5d134bd556b30dec24a5536cbf378ab86445a913299e4ab78b5f25",
+            "size": 349682
+          },
+          {
+            "name": "dataset-1_walk-back_proud_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-back_proud_001.bvh",
+            "sha256": "869fc9fc8e3da6a58da8b5ceeae6c79e4249739a70ee0f79eebfdbd7a5e4871b",
+            "size": 482801
+          },
+          {
+            "name": "dataset-1_walk-back_sad_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-back_sad_001.bvh",
+            "sha256": "4bf0924d2435500799bfce91fa0b591fa41d64d6ab6381975529a51c75cb50c0",
+            "size": 483863
+          },
+          {
+            "name": "dataset-1_walk-back_tired_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-back_tired_001.bvh",
+            "sha256": "f469fdd93dfa2345c2e4ddf0721bc452366e4de2f1be09cdcbc1708f99041f67",
+            "size": 270130
+          },
+          {
+            "name": "dataset-1_walk-left_active_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-left_active_001.bvh",
+            "sha256": "1aea784d3a44bbbb9b256d196a76f38c192d3a702a6d90e47b51f2be9f475c79",
+            "size": 114325
+          },
+          {
+            "name": "dataset-1_walk-left_angry_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-left_angry_001.bvh",
+            "sha256": "cea108c139b9a7c976f655a52bf91b63b459dc3ab5e0796a2f9c19b443b9d864",
+            "size": 189733
+          },
+          {
+            "name": "dataset-1_walk-left_childish_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-left_childish_001.bvh",
+            "sha256": "b1a1efd81c681537ddc99e914de9927496002b6f9b126bdc776788442d7aa139",
+            "size": 165274
+          },
+          {
+            "name": "dataset-1_walk-left_chimpira_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-left_chimpira_001.bvh",
+            "sha256": "ce3a2bd8f0f6a60fb6ab663d751b5e045cad973cdd6b4cd70e12007d3b352b10",
+            "size": 148433
+          },
+          {
+            "name": "dataset-1_walk-left_feminine_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-left_feminine_001.bvh",
+            "sha256": "d4a32ef6883ce19005f48ae599565db3fca19da15bab8a96e7820b6c4754e804",
+            "size": 269948
+          },
+          {
+            "name": "dataset-1_walk-left_giant_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-left_giant_001.bvh",
+            "sha256": "5a288d0d25a4871256260af583a205196da6bd1929a0ad87815fa80896fedeb0",
+            "size": 147218
+          },
+          {
+            "name": "dataset-1_walk-left_happy_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-left_happy_001.bvh",
+            "sha256": "44fe89b2f1b6ff56d9d70168e02259f7b1b7862bc5af5accb7f734fc57fc5ba9",
+            "size": 186713
+          },
+          {
+            "name": "dataset-1_walk-left_masculinity_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-left_masculinity_001.bvh",
+            "sha256": "1cd2687fa7459eb38cdb8be0f2c5a8c85d987603e60094116701d7a037d2c7a0",
+            "size": 131249
+          },
+          {
+            "name": "dataset-1_walk-left_musical_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-left_musical_001.bvh",
+            "sha256": "88cdda9d33079de3d1e0a7f4b9dab69d6795bca107a12a0c5873f38454cb66e2",
+            "size": 184935
+          },
+          {
+            "name": "dataset-1_walk-left_normal_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-left_normal_001.bvh",
+            "sha256": "26ee7e8cf65a7c839b7790c90328fcb730e53ab18b4cbef5f8fba397de3ae675",
+            "size": 170082
+          },
+          {
+            "name": "dataset-1_walk-left_not-confident_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-left_not-confident_001.bvh",
+            "sha256": "53eeebdfc46064223171d09e769c530924b278fb267d57a7b011c4bdc700b281",
+            "size": 301757
+          },
+          {
+            "name": "dataset-1_walk-left_old_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-left_old_001.bvh",
+            "sha256": "76abade589e0220bd81143e2ef2051f4fcc34c3d8f90a304de60bc1dc36ea095",
+            "size": 195449
+          },
+          {
+            "name": "dataset-1_walk-left_proud_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-left_proud_001.bvh",
+            "sha256": "97a64a279a32256a73b3e0257b0fbdd9dde3b9d5f34857e0f5253e9ceacbafcb",
+            "size": 252705
+          },
+          {
+            "name": "dataset-1_walk-left_sad_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-left_sad_001.bvh",
+            "sha256": "4318d5894f2808aed8d1be609d8205c61abd5d3e9a17d27e44a73e47ca97322f",
+            "size": 412365
+          },
+          {
+            "name": "dataset-1_walk-left_tired_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-left_tired_001.bvh",
+            "sha256": "759892ca693f938ea837f25a52836d6579bf61e0ff95ad6fbdf9abcd3796b29f",
+            "size": 173320
+          },
+          {
+            "name": "dataset-1_walk-right_active_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-right_active_001.bvh",
+            "sha256": "08f2a0c90386eecd644d4f6b25cdacd34b0139adf7d67985d101d1b6e28a91d1",
+            "size": 114482
+          },
+          {
+            "name": "dataset-1_walk-right_angry_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-right_angry_001.bvh",
+            "sha256": "09cd22a7104b9c222002b1ac33f21fa77262054d28dd0b6983e5e50039e9a45a",
+            "size": 190366
+          },
+          {
+            "name": "dataset-1_walk-right_childish_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-right_childish_001.bvh",
+            "sha256": "4742fa63b258d031bd0712ce17db6a1dd129ce30f31d625cee31930bdcc50e8b",
+            "size": 172270
+          },
+          {
+            "name": "dataset-1_walk-right_chimpira_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-right_chimpira_001.bvh",
+            "sha256": "3ab007120e39acd4d6d4d069f6cad76c9830b4bc66eb6f3cf913c855cf3e5ed3",
+            "size": 148513
+          },
+          {
+            "name": "dataset-1_walk-right_feminine_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-right_feminine_001.bvh",
+            "sha256": "5424cfd7e1aacdc051063e4f5def1c6da24fb099414cff3c0a7445788146e08c",
+            "size": 273792
+          },
+          {
+            "name": "dataset-1_walk-right_giant_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-right_giant_001.bvh",
+            "sha256": "96d57ec9d5fb48210bbf3ea6b41a6d38500e11aa29a198fd770901f41c85e017",
+            "size": 194023
+          },
+          {
+            "name": "dataset-1_walk-right_happy_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-right_happy_001.bvh",
+            "sha256": "4f288b24066784c5f2da6084e809a9e62c5ef3f5faf8b6eaf9f393e230a2f748",
+            "size": 190331
+          },
+          {
+            "name": "dataset-1_walk-right_masculinity_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-right_masculinity_001.bvh",
+            "sha256": "db17747e8d3e61b27e9b10b775bb5c09a954d4d23ea60c556ef75ac2fc9d4727",
+            "size": 128698
+          },
+          {
+            "name": "dataset-1_walk-right_musical_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-right_musical_001.bvh",
+            "sha256": "7dc746c538fc4d3b65a3715e29c22dcb3a86f876a5fdd540233096cfde6515f2",
+            "size": 185699
+          },
+          {
+            "name": "dataset-1_walk-right_normal_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-right_normal_001.bvh",
+            "sha256": "2b77b84d4caf2e037441d48073f4c3f5e5b43bf98a96f4f4ca96be931a0c3657",
+            "size": 169522
+          },
+          {
+            "name": "dataset-1_walk-right_not-confident_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-right_not-confident_001.bvh",
+            "sha256": "ce8dc89921f38d99d008fa2906a7b8520a654d0780f47a4cbdae35f52d3f4364",
+            "size": 301869
+          },
+          {
+            "name": "dataset-1_walk-right_old_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-right_old_001.bvh",
+            "sha256": "7bf6058a7defb889173e9cd997862bd0e2e648065a8c998418446c3caaa57161",
+            "size": 170849
+          },
+          {
+            "name": "dataset-1_walk-right_proud_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-right_proud_001.bvh",
+            "sha256": "3225a2aa0b2d9cc8e5f19c3edfdcacbe33361641cdd7e67726a83390a71bad81",
+            "size": 326989
+          },
+          {
+            "name": "dataset-1_walk-right_sad_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-right_sad_001.bvh",
+            "sha256": "5b201711ef993e02f6327a7bfaec36e5eacd3e22413975d5a8b8565de0cad0bd",
+            "size": 357695
+          },
+          {
+            "name": "dataset-1_walk-right_tired_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk-right_tired_001.bvh",
+            "sha256": "a09c1eb9afd4e95f9ac58a7ce3a04685d3b9a6220dbf56544f6b6867a75d348d",
+            "size": 168233
+          },
+          {
+            "name": "dataset-1_walk_active_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_active_001.bvh",
+            "sha256": "df0d24edcaba9dd768c0efb7b5f378316e1b2cc25922c2332b420f3f5eaf1487",
+            "size": 183432
+          },
+          {
+            "name": "dataset-1_walk_active_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_active_002.bvh",
+            "sha256": "5244e3f69e4140fdfd691aafdfcadaa588ae3707e7d0ae301a9cf6c816b17603",
+            "size": 181996
+          },
+          {
+            "name": "dataset-1_walk_angry_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_angry_001.bvh",
+            "sha256": "80ad2b0e7656b1b8b0f2a679f9bca0886f521c54d97ae93092ef5a714ab88e17",
+            "size": 179511
+          },
+          {
+            "name": "dataset-1_walk_angry_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_angry_002.bvh",
+            "sha256": "fc1f4a0e7f7ef7e6112a1d688a8425f36c52a1b477388e8e4898c0aa8f25252a",
+            "size": 301956
+          },
+          {
+            "name": "dataset-1_walk_childish_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_childish_001.bvh",
+            "sha256": "4b4fd02da8fb0eca5c1ef0ae4d9bc4abc15016f579ebb8636611c40393c79af5",
+            "size": 294082
+          },
+          {
+            "name": "dataset-1_walk_childish_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_childish_002.bvh",
+            "sha256": "4f581bd53e832b08b062e614f3b9a6eb920e03ef3a17d699b319331d558a8b86",
+            "size": 282178
+          },
+          {
+            "name": "dataset-1_walk_chimpira_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_chimpira_001.bvh",
+            "sha256": "faf7ec46316feac2f58eeb05b03d4c2060ca8aad04750d8b88a98b43a2f0ecb4",
+            "size": 212376
+          },
+          {
+            "name": "dataset-1_walk_chimpira_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_chimpira_002.bvh",
+            "sha256": "12cc2b23196c2370303f194cb3319e3894b3dc8bddc96444b2b3541cdb785980",
+            "size": 229711
+          },
+          {
+            "name": "dataset-1_walk_feminine_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_feminine_001.bvh",
+            "sha256": "6bec50f7b5f541cd54e9691e571d5505133a50623abfef9ba3ba3ee788a33eb3",
+            "size": 343168
+          },
+          {
+            "name": "dataset-1_walk_feminine_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_feminine_002.bvh",
+            "sha256": "f00d817fc262322e4dd55a91bb5249ba65b7731d0ab7d2e6a1947ce2f8e6f2e1",
+            "size": 260721
+          },
+          {
+            "name": "dataset-1_walk_giant_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_giant_001.bvh",
+            "sha256": "5ec9fe480a416a0f0e2bbd982654c4fc9e3362e74d8e67a34fe143526ab963c5",
+            "size": 242198
+          },
+          {
+            "name": "dataset-1_walk_giant_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_giant_002.bvh",
+            "sha256": "00de44c32d3e8e3627b147c509eaa3ef714525d3ba21d99d50021ef9e773a699",
+            "size": 276268
+          },
+          {
+            "name": "dataset-1_walk_happy_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_happy_001.bvh",
+            "sha256": "ac866d76d00134492e07583aaae68c2d42dd1b295ca57681c49b55848411815c",
+            "size": 266334
+          },
+          {
+            "name": "dataset-1_walk_happy_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_happy_002.bvh",
+            "sha256": "b47714c2ce5fba672ed09ddc30cbba15de1459ab8ebe15dbc291d35868c54d42",
+            "size": 169785
+          },
+          {
+            "name": "dataset-1_walk_masculinity_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_masculinity_001.bvh",
+            "sha256": "a8c1445dd892df2ec9657986191b31c7e6e038546cbd111ccd70e357e4dc993c",
+            "size": 206858
+          },
+          {
+            "name": "dataset-1_walk_masculinity_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_masculinity_002.bvh",
+            "sha256": "6f4677d202234bf3bffb91486523420797abba54d294891937fe6cce54cd408c",
+            "size": 232711
+          },
+          {
+            "name": "dataset-1_walk_musical_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_musical_001.bvh",
+            "sha256": "52ccb632041d7888bd28a689da493d09a983f272c34265ab5d79aec3e12026d8",
+            "size": 334098
+          },
+          {
+            "name": "dataset-1_walk_musical_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_musical_002.bvh",
+            "sha256": "2f92a6c382adc37ca8fa32c51e48c089938dd0a5a52b51c885819bdebea4fe20",
+            "size": 239773
+          },
+          {
+            "name": "dataset-1_walk_normal_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_normal_001.bvh",
+            "sha256": "5764cebc2fedabf287880a7f25cb06753e1679675a02a6f033998de041ba8032",
+            "size": 243939
+          },
+          {
+            "name": "dataset-1_walk_normal_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_normal_002.bvh",
+            "sha256": "1ecddccc604a0cb256fde9d5663e7e30264fad18a5db30abeef3b7fcd9f6dca7",
+            "size": 42679
+          },
+          {
+            "name": "dataset-1_walk_not-confident_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_not-confident_001.bvh",
+            "sha256": "b769cbae08f9df6460f61974c9e0a84845b924fed875aa5da998d9ac1ea6527e",
+            "size": 595390
+          },
+          {
+            "name": "dataset-1_walk_not-confident_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_not-confident_002.bvh",
+            "sha256": "85c0b631e0ef121702cf625850bbf8e51ae2881e6171fbdfe66890e7d1f544ea",
+            "size": 214768
+          },
+          {
+            "name": "dataset-1_walk_old_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_old_001.bvh",
+            "sha256": "3dd66cfb32844d1d16f82256814ac7ac446c2824ccf3d7f7738c225fe767bde6",
+            "size": 354501
+          },
+          {
+            "name": "dataset-1_walk_old_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_old_002.bvh",
+            "sha256": "40e133e29c4f954a40bbed88e9132088aad3595bc6772288449c9cc86d005691",
+            "size": 365582
+          },
+          {
+            "name": "dataset-1_walk_proud_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_proud_001.bvh",
+            "sha256": "9044301b145cf7c53d37d5f65f0377af78c4bf68c80f91c7afcf1ce9c87ffa0f",
+            "size": 409623
+          },
+          {
+            "name": "dataset-1_walk_proud_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_proud_002.bvh",
+            "sha256": "ae8bb69640802c2e76779ee0baa473cf70fc2df6739d8c8a449c9c0611661ab6",
+            "size": 376530
+          },
+          {
+            "name": "dataset-1_walk_sad_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_sad_001.bvh",
+            "sha256": "df07e6355759a8dbf3260e4342ef306f6e3b76e80b36bd1b078c34583c3ac2f5",
+            "size": 427937
+          },
+          {
+            "name": "dataset-1_walk_sad_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_sad_002.bvh",
+            "sha256": "26acb7fd224c1737ffa2a26b8243a140ac9317ba5857b2553faddd25f3e928ab",
+            "size": 509236
+          },
+          {
+            "name": "dataset-1_walk_tired_001.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_tired_001.bvh",
+            "sha256": "c23ae74ce470c3588bd12232fdeae0c5001b736bdf1234c1873aec26723c40c1",
+            "size": 307518
+          },
+          {
+            "name": "dataset-1_walk_tired_002.bvh",
+            "url": "https://raw.githubusercontent.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_tired_002.bvh",
+            "sha256": "498fe491f35279290e4cc8b2beac40cadcdbfe196c84c04f4c6be4a30be0f636",
+            "size": 281813
+          }
+        ]
+      }
+    },
+    {
+      "id": "lafan1",
+      "title": "Ubisoft La Forge Animation Dataset (LAFAN1)",
+      "source": "lafan1",
+      "license": "CC BY-NC-ND 4.0",
+      "license_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "nc": true,
+      "exportable": false,
+      "attribution": "Ubisoft La Forge Animation Dataset (LAFAN1), Ubisoft Entertainment",
+      "homepage": "https://github.com/ubisoft/ubisoft-laforge-animation-dataset",
+      "download": {
+        "user_supplied": true,
+        "accepts": [
+          ".zip"
+        ],
+        "instructions": "Download lafan1.zip from the LaFAN1 page (lafan1 folder) and choose it here."
+      },
+      "include": null
+    },
+    {
+      "id": "cmu",
+      "title": "CMU Graphics Lab Motion Capture Database (BVH conversion)",
+      "source": "cmu",
+      "license": "CMU Graphics Lab Motion Capture Database terms",
+      "license_url": "http://mocap.cs.cmu.edu/faqs.php",
+      "nc": false,
+      "exportable": true,
+      "attribution": "The data used in this project was obtained from mocap.cs.cmu.edu. The database was created with funding from NSF EIA-0196217.",
+      "homepage": "http://mocap.cs.cmu.edu/",
+      "download": {
+        "user_supplied": true,
+        "accepts": [
+          ".zip",
+          "folder"
+        ],
+        "instructions": "Download a BVH conversion of the CMU database and choose its .zip file, or the folder you unpacked it into."
+      },
+      "include": null
+    }
+  ]
+}

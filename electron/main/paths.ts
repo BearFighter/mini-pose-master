@@ -3,7 +3,15 @@
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
+let override: string | null = null
+
+/** End-to-end tests only (MPM_E2E=1 with --user-data-dir): use `dir` as the data directory. */
+export function setDataDirOverride(dir: string | null): void {
+  override = dir
+}
+
 export function dataDir(): string {
+  if (override) return override
   switch (process.platform) {
     case 'win32': {
       const localAppData = process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local')

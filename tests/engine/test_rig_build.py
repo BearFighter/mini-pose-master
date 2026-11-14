@@ -197,6 +197,8 @@ def test_rig_job_end_to_end():
         assert code == 0 and len(res) == 1 and not errs, p.stdout[-2000:] + p.stderr[-2000:]
         assert json.loads(res[0][len("@@result"):])["preview_glb"] == "rig/preview.glb"
         assert os.path.getsize(os.path.join(tmp, "rig", "preview.glb")) > 10000
+        saved = json.load(open(os.path.join(tmp, "rig", "import.json"), encoding="utf-8"))
+        assert saved["has_armature"] is False and saved["source_file"] == "source/apose.fbx", saved
         _m, _j, markers = truth_markers("apose")
         os.makedirs(os.path.join(tmp, "rig"), exist_ok=True)
         with open(os.path.join(tmp, "rig", "markers.json"), "w", encoding="utf-8") as fh:

@@ -438,7 +438,7 @@ the UI (clips are hip-centred and the bake drops the lowest point to z = 0).
 A project is a folder `<Name>/` containing `<Name>.mposer` (JSON) and:
 ```
 source/    copied imported model + textures
-rig/       scene.blend, rig.blend, rig.glb, rig.json, markers.json
+rig/       scene.blend, import.json, preview.glb, rig.blend, rig.glb, rig.json, markers.json
 weapons/   copied weapon files + converted .glb
 exports/   baked STL + preview .glb + report.json
 cache/     anything regenerable
@@ -452,9 +452,12 @@ cache/     anything regenerable
   "pose": <section 13> | null,
   "hands": { "L": <hand pose> , "R": <hand pose>, "locked": {"R": ["index"]} },
   "weapons": [ <section 12> ],
-  "bake": <section 14> }
+  "bake": <section 14>,
+  "rigDraft": { "markers": { "<marker>": {"p": [x,y,z], "confidence": 0.9, "source": "auto"|"user"} } } | null }
 ```
 - All paths are relative to the project folder.
+- `rigDraft.markers` is the auto-rig marker draft; `project.save` also writes it to `rig/markers.json`
+  (the file the `rig` job reads when no markers are passed).
 - Licensed clip data is never embedded; projects store only `provenance`.
 - Loading a `schemaVersion` older than the current one runs migrations in
   `electron/main/projects.ts` (`MIGRATIONS` / `migrateProject`).
@@ -483,12 +486,15 @@ Invocation (main process):
 @@error    {"code": "E_FOLLOW_CHECK", "message": "...", "detail": {...}}
 ```
 Exactly one `@@result` or `@@error` per job. Exit code 0 means success.
+Job files (`job.json` + log) live in `<project or library>/cache/jobs/`. Library jobs delete theirs on success;
+project jobs keep theirs for diagnosis. Files older than 14 days are pruned when the app starts (library) and
+when a project opens.
 
 Job types (args → result):
 
 | type | args | result |
 |---|---|---|
-| `import` | `file`, `orientation` (optional; else auto) | `objects[]` (with `materials`), `materials[]`, `normal_maps[]`, `has_armature`, `armature_bones[]`, `tri_count`, `height_m`, `suggested_orientation`, `orientation_used`, `proxy` (bool), `warnings[]`; writes `rig/scene.blend` |
+| `import` | `file`, `orientation` (optional; else auto) | `objects[]` (with `materials`), `materials[]`, `normal_maps[]`, `has_armature`, `armature_bones[]`, `tri_count`, `height_m`, `suggested_orientation`, `orientation_used`, `proxy` (bool), `warnings[]`, `preview_glb`, `source_file`; writes `rig/scene.blend`, `rig/preview.glb` and the same result to `rig/import.json` |
 | `suggest_markers` | – | `markers` (section 4) + `warnings[]` |
 | `suggest_mapping` | – (needs an armature in scene.blend) | `convention` (`mixamo` `ue` `biped` `rigify` `unknown`), `mapping` `{bone_name: canonical_bone or null}`, `unmapped_canonical[]`, `confidence` |
 | `rig` | `markers` or `mapping` (`{bone_name: canonical_name}`) | `rig_json`, `rig_glb`, `follow` stats; writes `rig/rig.blend` |
@@ -513,6 +519,8 @@ blender.setPath(path)            -> status
 blender.download()               -> status            (progress via event "blender:progress")
 blender.cancelDownload()         -> void
 dialog.openFile({filters})       -> path|null
+dialog.openFiles({filters, folders?}) -> path[]     (multi-select; [] when cancelled)
+dialog.openFolder({title?})      -> path|null
 dialog.saveFile({defaultPath, filters}) -> path|null
 project.create({name, parentDir})-> {dir, project}
 project.open(path)               -> {dir, project}
@@ -529,8 +537,13 @@ job.cancel(jobId)                -> void
 library.list()                   -> PackInfo[] (packs.json entry + {installed, clips, licenseAccepted,
                                     busy, stale})
 library.install({packId, acceptLicense: true})            -> {clips, failed[]}   (downloadable packs)
-library.installFromFile({packId, file, acceptLicense: true}) -> {clips, failed[]} (.zip, folder or .bvh)
-library.importClip({file, source}) -> {packId: "mine", clipIds}
+library.installFromFile({packId, files[], acceptLicense: true, append?}) -> {clips, failed[]}
+                                    (any mix of .zip, folders and .bvh; folders and .bvh are copied and
+                                    zips extracted into raw/<pack>/, paths relative to the chosen
+                                    folder; without append the pack and raw/<pack>/ are replaced, with
+                                    append the existing pack is copied into .installing first)
+library.reconvert(packId)        -> {clips, failed[]}   (everything in raw/<pack>/ again, then swap)
+library.importClip({file, source}) -> {packId: "mine", clipIds}   (copied to raw/mine/, free name)
 library.cancel(packId)           -> void
 library.remove(packId)           -> void
 library.saveThumb({packId, clipId, frame, png}) -> void   (png: Uint8Array, PNG, <= 512 KB)
@@ -545,14 +558,25 @@ project-relative with the model first.
 
 On the wire, invoke channels are named `mpm:<area>.<method>` (for example `mpm:app.info`); events
 use the bare event names below.
+
+**Errors**: every invoke rejection's message is `"<CODE>: message"`, with a section 16 error code:
+`E_ARGS` for invalid arguments or a refused state (busy, not the open project, license not
+accepted), `E_IO` for file-system and network problems, `E_CANCELLED`, `E_BLENDER_VERSION` when no
+usable Blender 5.2 is available, `E_IMPORT_FAILED` and the other job codes where they apply, and
+`E_INTERNAL` for anything unexpected. Electron puts `Error invoking remote method '<channel>': Error: `
+in front of it in the renderer.
 Main → renderer events: `job:event {jobId, kind:"progress"|"result"|"error"|"log", payload}`,
 `blender:progress {bytes,total}`, `library:progress {packId, stage, fraction}`,
 `update:event {kind, version?, url?}`, `app:open-project {path}`.
 
-**File protocol** `mpm://`, registered as privileged (standard, secure, supportFetchAPI):
+**File protocol** `mpm://`, registered as privileged (standard, secure, supportFetchAPI, corsEnabled, stream):
 - `mpm://project/<url-encoded relative path>` resolves inside the currently open project folder.
 - `mpm://library/<relative path>` resolves inside the library folder.
-- Anything that resolves outside those roots, after `path.resolve`, returns 403.
+- Anything that resolves outside those roots, after `path.resolve`, returns 403; a missing file returns 404.
+- A query or fragment (cache busting `?v=`) is ignored. Responses carry `Access-Control-Allow-Origin: *`
+  (the page is another origin). This is safe only because the window can never show a foreign page:
+  `will-navigate` away from the app page is blocked and `window.open` is denied (https links open in the
+  system browser).
 
 Security settings: `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, no `remote`.
 
@@ -625,7 +649,7 @@ sell prints made with these poses."*
                "include": null } ] }
 ```
 - URLs pin a commit SHA, never a branch.
-- Library folder: `<library>/raw/<pack>/` keeps the downloaded or extracted source files (so a newer
+- Library folder: `<library>/raw/<pack>/` keeps the downloaded, extracted or copied source files (so a newer
   converter can re-convert without downloading); `<library>/packs/<pack>/` is the §9 pack. A pack is
   built in `packs/<pack>.installing/` and renamed into place when complete.
 - `index.json` records `"converter_version"`; `library.list` reports `stale: true` when it is older
