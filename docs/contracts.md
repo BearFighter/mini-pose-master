@@ -177,8 +177,10 @@ Output: `D_b` for every mapped canonical bone.
    (section 10).
 8. `root_offset` = (0, 0, 0). Floor contact is handled by "plant feet" (section 12).
 
-The Python reference implementation and the TS port must give the same D (angle difference
-< 0.01°) on the parity fixtures.
+Verification (replaces the planned Python reference, since the engine never retargets): round-trip tests
+in `tests/ts/posemath.test.ts` pose a rig with seeded random deltas, read the posed joints and
+rotations back as a clip frame, and require `retarget.ts` to recover full rotations for hips, head,
+hands and feet, and every bone direction (all < 0.05°).
 
 ---------------------------------------------------------------------------------------------------
 ## 7. Skinning parity and GLB export (engine)
@@ -270,7 +272,8 @@ Rules for what is stored:
   the heading turns so the hip line points +X (the figure faces −Y), and z is measured from the
   clip's floor (2nd percentile of the lowest foot joint over the clip).
 - **Rotations**: each joint's world rotation in the same normalised frame, **relative to the
-  reference pose**. The reference pose (identity) is a T-pose facing −Y with palms down (−Z), feet
+  reference pose**. The rotation stored at a joint is that of the bone that **starts** at the joint:
+  the hand uses `wrist_s`, the foot uses `ankle_s`, and the head uses `head`. The reference pose (identity) is a T-pose facing −Y with palms down (−Z), feet
   flat and head level. Each converter has a per-source calibration (`engine/mpm/convert/sources.py`)
   that maps the source's rest pose to the reference. Calibration is verified with the palm/forward
   check in the converter tests.
