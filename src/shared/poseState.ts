@@ -1,21 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // contracts section 13: the pose state handed to the bake (every bone resolved).
-import type { QuatWXYZ, Vec3 } from './coords'
+import type { EditOp } from './composePose'
+import type { Vec3 } from './coords'
 import type { Deltas } from './fk'
 import { resolveDeltas } from './fk'
 import type { RigJson } from './rig'
 
-export interface PoseEdit {
-  bone: number
-  q: QuatWXYZ
-}
+/** contracts section 13 edit op (see composePose.ts). */
+export type PoseEdit = EditOp
 
 export interface PoseProvenance {
   pack: string | null
   clip: string | null
   frame: number | null
   mirrored: boolean
-  edits: PoseEdit[]
+  /** Plant both feet when the frame has two floor contacts. Absent = true. */
+  planted?: boolean
+  edits: EditOp[]
 }
 
 export interface PoseState {

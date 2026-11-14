@@ -380,11 +380,32 @@ Weapon entry (project file):
   "root_offset": [x,y,z],
   "deltas": { "<rig.json bone index>": [w,x,y,z] },
   "provenance": { "pack": "lafan1", "clip": "aiming1_subject1", "frame": 512,
-                  "mirrored": false, "edits": [ {"bone": 7, "q": [w,x,y,z]} ] } }
+                  "mirrored": false, "planted": true,
+                  "edits": [ {"kind": "rotate", "bone": "upper_arm.R", "q": [w,x,y,z], "chain": true},
+                             {"kind": "reach", "side": "L", "target": [x,y,z]} ] } }
 ```
 `deltas` must contain **every** bone of rig.json, with unmapped bones resolved to `D_parent`, so the
-engine needs no rules. If `rig_hash` differs from the current rig, the renderer re-derives the pose
-from `provenance` and warns the user.
+engine needs no rules.
+
+**The renderer derives `deltas` from the provenance with one pure function** (`src/shared/composePose.ts`,
+`composePose(rig, inputs, clipFrame | null)`), in this order:
+1. base = `retargetFrame(rig, clipFrame)`, or rest (`{}`) without a clip
+2. if `mirrored`: `mirrorPose`
+3. if `planted`: `plantFeet` with the frame's contacts (mirrored contacts when mirrored)
+4. the `edits`, in order:
+   - `rotate`: `q` is an armature-space (Blender) rotation about the bone's posed head:
+     `D_b ← q · D_b`, and with `chain: true` the same for every descendant (the limb follows, as in
+     FK). `bone` is a **canonical** bone name, so edits survive a rig rebuild. Only bones with a
+     canonical name are editable.
+   - `reach`: `reachArm(rig, deltas, side, target)`; `target` is in Blender armature space, metres
+5. hand poses (§10, `applyHandPose`) for each side that has one
+6. two-hand weapon IK (§12) when a weapon has `support.enabled`
+
+Mirroring after editing mirrors the edits as well: rotate becomes partner bone, `[w, x, −y, −z]`;
+reach becomes other side, target `(−x, y, z)`. When `rig_hash` differs from the current rig, the
+renderer re-runs `composePose` from the provenance (the clip must be installed) and warns the user;
+if the clip is not available it keeps rest + edits and says so. `root_offset` stays `[0,0,0]` from
+the UI (clips are hip-centred and the bake drops the lowest point to z = 0).
 
 ---------------------------------------------------------------------------------------------------
 ## 14. Bake settings, gates, budgets
