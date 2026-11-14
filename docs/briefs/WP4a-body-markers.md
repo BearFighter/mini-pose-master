@@ -131,3 +131,35 @@ replacements below override the matching steps above; all other steps stay.
   - limbs (shoulder, elbow, wrist, hip, knee, ankle, toe): **2 % of H**
   - torso (pelvis, chest, neck, head, head_top): **3 % of H**
   - confidence ≥ 0.6 on all listed fixtures (unchanged)
+
+---------------------------------------------------------------------------------------------------
+## Revision 2 (architect), after the Revision 1 report
+
+**Crotch**: replace the midline-fill scan. Inner thigh surfaces enter any narrow band once the thighs
+are close, which happens on real bodies too.
+- Cast a ray **upward** from `(0, y_mid, −1.0)` (where `y_mid` is from the thigh clusters, unchanged)
+  against all meshes, using a `BVHTree` built from them.
+- Crotch = the z of the first hit.
+- If there is no hit, or the hit is below `0.35·H`, fall back to the previous scan with the band
+  narrowed to `|x| < 0.004·H`. If that also lands below `0.35·H`, use `0.47·H`, with confidence 0.3 on
+  the pelvis and hips plus a warning.
+
+**Shoulder**: the torso width measurement must clear the arms in both A- and T-poses.
+- Measure `torso_half` = the max |x| of the midline cluster (the largest cluster spanning x = 0) in
+  the slab at `z_ref − 0.06·H`.
+- If that cluster's x-extent exceeds `0.35·H` (still merged with the arms), step the slab down by
+  `0.01·H` until it doesn't, to at most `0.15·H` below `z_ref`. If it never clears, use the old-rule
+  fallback (confidence ×0.5).
+- `x_sh = torso_half + 0.6·r_arm`. The 0.6 is anchored to adult anatomy: shoulder joint centres sit
+  about 2–3 cm outside the rib cage.
+- Everything else in the Revision 1 shoulder rule stays.
+
+**Fixtures**: the upper torso was widened to human proportions (chest and upper-chest skin radii
+increased); truth joints are unchanged. Tolerances are unchanged.
+
+**Revision 3 (architect, implemented directly)**:
+- **Elbow** at **55 %** of the shoulder→wrist arc length, not 50 %. Upper arm ≈ 0.186 H and forearm
+  ≈ 0.146 H (standard segment ratios); the fixture is 30/26 cm.
+- **Knee**: a "clear minimum" needs the minimum to be ≥ **3 %** narrower than both ends of the search
+  range (was 10 %).
+- **Result**: all marker tests pass on apose, tpose, skirt, mitten and yup_cm.

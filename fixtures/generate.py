@@ -316,7 +316,7 @@ def smart_uv(obj):
 # ----------------------------------------------------------------------------------------------
 # mesh construction
 # ----------------------------------------------------------------------------------------------
-RADIUS = {"pelvis": 0.12, "spine0": 0.13, "chest": 0.15, "upper_chest": 0.155, "neck": 0.055,
+RADIUS = {"pelvis": 0.12, "spine0": 0.13, "chest": 0.16, "upper_chest": 0.17, "neck": 0.055,
           "neck_mid": 0.050, "head": 0.075, "cranium": 0.10, "head_top": 0.03,
           "clav": 0.06, "shoulder": 0.065, "upper_arm_mid": 0.048, "elbow": 0.042, "forearm_mid": 0.040,
           "wrist": 0.030, "hip": 0.085, "mid_thigh": 0.075, "knee": 0.048, "mid_calf": 0.060,
