@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // contracts section 13: the one function that turns pose provenance into rig deltas.
-// Order: clip frame (retarget) -> mirror -> plant feet -> edits -> hand poses. (Two-hand weapon IK, step 6,
-// is added by the weapons package.)
+// Order: clip frame (retarget) -> mirror -> plant feet -> edits -> grip sockets follow their hands ->
+// two-hand weapon IK -> hand poses.
 import type { ClipFrame } from './clip'
 import type { QuatWXYZ, Vec3 } from './coords'
 import type { Deltas } from './fk'
@@ -14,6 +14,8 @@ import { mirrorPose } from './mirror'
 import { retargetFrame } from './retarget'
 import type { RigJson } from './rig'
 import { mirrorName } from './skeleton'
+import type { WeaponEntry } from './weaponPose'
+import { followHands, supportIK } from './weaponPose'
 
 /** An edit, replayable on any rig: bones by canonical name, rotations and targets in Blender armature space. */
 export type EditOp =
@@ -25,6 +27,8 @@ export interface PoseInputs {
   planted: boolean
   edits: EditOp[]
   hands?: { L?: HandPose | null; R?: HandPose | null }
+  /** Weapons with `support.enabled` drive the support arm (two-hand IK). */
+  weapons?: WeaponEntry[]
 }
 
 export interface ComposeResult {
@@ -33,6 +37,8 @@ export interface ComposeResult {
   skipped: EditOp[]
   /** Per side, how far the last reach edit fell short of its target (metres). */
   reachShort: { L?: number; R?: number }
+  /** Per weapon id, how far the support hand fell short of its grip point (metres). */
+  supportShort: Record<string, number>
 }
 
 /** Every descendant of bone i (rig.json indices), any order. */
@@ -105,11 +111,20 @@ export function composePose(rig: RigJson, inputs: PoseInputs, frame: ClipFrame |
     d = r.deltas
     if (op.kind === 'reach' && r.reachShort !== undefined) reachShort[op.side] = r.reachShort
   }
+  d = followHands(rig, d)
+  const supportShort: Record<string, number> = {}
+  for (const w of inputs.weapons ?? []) {
+    const r = supportIK(rig, d, w)
+    if (r) {
+      d = r.deltas
+      supportShort[w.id] = r.reachShort
+    }
+  }
   for (const s of ['L', 'R'] as const) {
     const h = inputs.hands?.[s]
     if (h && rig.hands[s]) d = applyHandPose(rig, d, s, h)
   }
   const out: Deltas = {}
   for (const [k, q] of Object.entries(resolveDeltas(rig, d))) out[k] = canonW(wxyz(q4(q)))
-  return { deltas: out, skipped, reachShort }
+  return { deltas: out, skipped, reachShort, supportShort }
 }

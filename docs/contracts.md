@@ -398,8 +398,11 @@ engine needs no rules.
      FK). `bone` is a **canonical** bone name, so edits survive a rig rebuild. Only bones with a
      canonical name are editable.
    - `reach`: `reachArm(rig, deltas, side, target)`; `target` is in Blender armature space, metres
-5. hand poses (§10, `applyHandPose`) for each side that has one
-6. two-hand weapon IK (§12) when a weapon has `support.enabled`
+5. grip sockets follow their hands: `D[grip.s] = D[hand.s]` (rigid attachments)
+6. two-hand weapon IK (§12, `weaponPose.ts` `supportIK`) for each weapon with `support.enabled`; the
+   support hand's children (fingers, socket) turn with the hand
+7. hand poses (§10, `applyHandPose`) for each side that has one. They come last because they hang off
+   the final hand delta; auto-grip (§11) writes its result into these hand poses
 
 Mirroring after editing mirrors the edits as well: rotate becomes partner bone, `[w, x, −y, −z]`;
 reach becomes other side, target `(−x, y, z)`. When `rig_hash` differs from the current rig, the
