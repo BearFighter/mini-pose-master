@@ -195,6 +195,8 @@ def test_rig_job_end_to_end():
                 shutil.copy(os.path.join(os.path.dirname(fx("apose")), f), os.path.join(tmp, "source", f))
         code, res, errs, p = _run_job(tmp, "import", {"file": "source/apose.fbx"})
         assert code == 0 and len(res) == 1 and not errs, p.stdout[-2000:] + p.stderr[-2000:]
+        assert json.loads(res[0][len("@@result"):])["preview_glb"] == "rig/preview.glb"
+        assert os.path.getsize(os.path.join(tmp, "rig", "preview.glb")) > 10000
         _m, _j, markers = truth_markers("apose")
         os.makedirs(os.path.join(tmp, "rig"), exist_ok=True)
         with open(os.path.join(tmp, "rig", "markers.json"), "w", encoding="utf-8") as fh:

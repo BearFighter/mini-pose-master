@@ -43,7 +43,30 @@ def main(job):
         bpy.ops.wm.save_as_mainfile(filepath=os.path.join(rig_dir, "scene.blend"), compress=True)
     except Exception as e:  # noqa: BLE001
         raise protocol.MpmError("E_IO", "cannot save scene.blend: %s" % e)
+    protocol.progress("preview", 0.95, "exporting the preview")
+    info["preview_glb"] = export_preview(rig_dir, proxy)
     return info
+
+
+def export_preview(rig_dir, proxy):
+    """Static rest-pose GLB of the meshes (their proxies for dense models) for the Import/Rig steps.
+    Runs after scene.blend is saved, so the image downscaling here is never persisted."""
+    from mpm.rig import export as RX
+    objs = [o for o in bpy.data.objects if o.type == 'MESH']
+    show = [o for o in objs if ("mpm_proxy_of" in o)] if proxy else [o for o in objs if "mpm_proxy_of" not in o]
+    for o in objs:
+        o.hide_set(o not in show)
+        o.hide_viewport = o not in show
+        o.select_set(o in show)
+    RX._downscale_images(show)
+    path = os.path.join(rig_dir, "preview.glb")
+    try:
+        bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True, export_yup=True,
+                                  export_apply=True, export_skins=False, export_animations=False,
+                                  export_morph=False, export_materials='EXPORT', export_image_format='AUTO')
+    except Exception as e:  # noqa: BLE001
+        raise protocol.MpmError("E_EXPORT", "cannot export the preview: %s" % e)
+    return "rig/preview.glb"
 
 
 protocol.run(main)
