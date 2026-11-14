@@ -136,9 +136,14 @@ def _normalize(bm, height, unit_mm=None):
 
 
 def _clean(bm, dist):
-    """Weld split seams, drop duplicate (double-sided) faces and loose bits."""
+    """Weld split seams, drop duplicate (double-sided) faces and loose bits.
+
+    Only vertices on open boundaries are welded: split UV/normal seams are always open, while welding
+    everything would also collapse genuinely tiny edges of dense meshes and tear them."""
     n0 = len(bm.verts)
-    bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=dist)
+    rim = [v for v in bm.verts if any(e.is_boundary for e in v.link_edges)]
+    if rim:
+        bmesh.ops.remove_doubles(bm, verts=rim, dist=dist)
     welded = n0 - len(bm.verts)
     bmesh.ops.dissolve_degenerate(bm, dist=dist * 0.1, edges=bm.edges[:])
     bm.verts.index_update()
@@ -263,8 +268,20 @@ def _thicken_sheets(bm, thickness):
     sbm.to_mesh(me)
     sbm.free()
     ob = _new_object("mp_sheets", me)
+    keep = me.copy()
+    lo0, hi0 = _np_verts(me).min(0), _np_verts(me).max(0)
     _apply_modifier(ob, 'SOLIDIFY', thickness=thickness, offset=0.0,
                     use_even_offset=True, use_rim=True, use_quality_normals=True)
+    co = _np_verts(ob.data)
+    if len(co) and max((lo0 - co.min(0)).max(), (co.max(0) - hi0).max()) > 3.0 * thickness:
+        # even offset spikes at degenerate corners: redo with plain offsets
+        old = ob.data
+        ob.data = keep
+        bpy.data.meshes.remove(old)
+        _apply_modifier(ob, 'SOLIDIFY', thickness=thickness, offset=0.0,
+                        use_even_offset=False, use_rim=True, use_quality_normals=True)
+    elif keep.users == 0:
+        bpy.data.meshes.remove(keep)
     bm.from_mesh(ob.data)
     _remove_object(ob)
 
@@ -329,6 +346,51 @@ def _drop_voids_and_debris(ob, min_volume):
     keep = cvol[cvol >= min_volume]
     return {"voids_filled": voids, "debris_removed": debris,
             "pieces": int(len(keep)), "volume_mm3": float(keep.sum())}
+
+
+def _bad_vertices(bm):
+    """Vertices on edges without exactly two faces, plus bow-tie vertices (two face fans meeting)."""
+    bad = set()
+    for e in bm.edges:
+        if len(e.link_faces) != 2:
+            bad.update(e.verts)
+    for v in bm.verts:
+        if not v.is_manifold:
+            bad.add(v)
+    return bad
+
+
+def _repair_nonmanifold(ob, weld=1e-5, rounds=6):
+    """Voxel remeshing (and decimation) can pinch where two surfaces nearly touch: an edge shared by 4
+    faces, or two fans sharing one vertex. Weld by position (as an STL reader would), then cut a ring of
+    faces around each bad spot and cap the holes, until none are left. Returns the vertices removed."""
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=weld)
+    removed = 0
+    for _ in range(rounds):
+        bad = _bad_vertices(bm)
+        if not bad:
+            break
+        ring = set(bad)
+        for v in bad:
+            for f in v.link_faces:
+                ring.update(f.verts)
+        removed += len(ring)
+        bmesh.ops.delete(bm, geom=list(ring), context='VERTS')
+        loose = [v for v in bm.verts if not v.link_faces]
+        if loose:
+            bmesh.ops.delete(bm, geom=loose, context='VERTS')
+        filled = bmesh.ops.holes_fill(bm, edges=[e for e in bm.edges if e.is_boundary], sides=0)["faces"]
+        big = [f for f in filled if len(f.verts) > 3]
+        if big:
+            bmesh.ops.triangulate(bm, faces=big)
+    if removed:
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    bm.to_mesh(ob.data)
+    bm.free()
+    ob.data.update()
+    return removed
 
 
 def _thin_check(me, min_t, eps):
@@ -476,6 +538,9 @@ def make_printable(objects, s, out_path, name="model", collection=None):
         log(f"  decimating {tris:,} -> {s.max_tris:,} triangles...")
         _apply_modifier(ob, 'DECIMATE', decimate_type='COLLAPSE',
                         ratio=s.max_tris / tris, use_collapse_triangulate=True)
+    rep["nonmanifold_repaired_verts"] = _repair_nonmanifold(ob)
+    if rep["nonmanifold_repaired_verts"]:
+        log(f"  repaired {rep['nonmanifold_repaired_verts']} vertices around pinched edges")
 
     co = _np_verts(ob.data)
     ob.data.transform(Matrix.Translation((-centre[0], -centre[1], -co[:, 2].min())))

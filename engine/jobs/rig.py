@@ -31,9 +31,17 @@ def _markers(job):
 
 
 def rig_meshes():
-    """Meshes to rig: the proxies when the model was decimated for editing, else all meshes."""
+    """Meshes to rig: the proxies when the model was decimated for editing, else all meshes.
+
+    Proxies are made visible: Blender does not evaluate objects hidden with hide_viewport (the self-check
+    would see an unmoved mesh) and cannot select hidden objects (rig.glb would be empty). The bake skins
+    the full-detail originals from the proxies (mpm/bake.py)."""
     objs = [o for o in bpy.data.objects if o.type == 'MESH']
     prox = [o for o in objs if "mpm_proxy_of" in o]
+    for o in prox:
+        o.hide_viewport = False
+        o.hide_render = False
+        o.hide_set(False)
     return prox or objs
 
 

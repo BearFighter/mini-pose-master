@@ -10,6 +10,10 @@ export interface PackClip {
   frames: number
   fps: number
   key_frames: number[]
+  /** Source file, relative to its install root (contracts section 9). */
+  src?: string
+  /** Present when this clip's joint list differs from the pack's: use `clip.joints ?? index.joints`. */
+  joints?: string[]
 }
 
 export interface PackIndex {

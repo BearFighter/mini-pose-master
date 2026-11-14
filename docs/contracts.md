@@ -258,8 +258,14 @@ Library folder: `<library>/packs/<pack_id>/` contains `index.json`, plus `clips/
   "has_fingers": false,
   "clips": [ { "id": "dance-long_normal_001", "move": "dance-long", "style": "normal",
                "tags": ["dance"], "frames": 1234, "fps": 15,
-               "key_frames": [12, 340] } ] }
+               "key_frames": [12, 340], "src": "dataset-1_dance-long_normal_001.bvh" } ] }
 ```
+- `src` is the source file's path relative to its install root. Ids stay unique: a take whose id is
+  already used by a different `src` becomes `<parent folder>_<id>`, then `_2`, `_3`, ...; re-converting
+  the same `src` keeps its id.
+- A clip whose joint list differs from the pack's (for example clips from different sources in the
+  user's `mine` pack) carries its own `"joints": [...]`. Readers use `clip.joints ?? index.joints`, and
+  J in that clip's header matches it.
 
 `clips/<id>.f32`, all little-endian:
 1. A 16-byte header: the 4 ASCII bytes `MPM0`, then uint32 F (frames), uint32 J (joints = length of
@@ -342,7 +348,12 @@ Weapon entry (project file):
   "support": { "enabled": true, "side": "L", "point": [x,y,z], "normal": [x,y,z], "axis": [x,y,z] },
   "merge": true }
 ```
-- The weapon's world transform is `posed(attach_bone) · TRS(offset)`. `offset` is in the attach
+- The weapon's world transform is `A · TRS(offset)`, where the **attach frame** A is defined in Blender
+  armature space as `Translation(posed head of the attach bone) · (D_b · R(rest_q_b))`, with D_b
+  the bone's pose delta and `rest_q_b` from rig.json. This equals Blender's `pose_bone.matrix` after
+  posing. **Never use three.js bone-node axes**: the glTF exporter may re-orient bone nodes.
+  `attach_bone` is the canonical socket name (`grip.L` / `grip.R`). The weapon file is the converted
+  `weapons/<name>.glb`; its geometry is read as Blender metres after glTF import. `offset` is in the attach
   bone's posed frame. Weapon geometry is in metres, in Blender frame.
 - `support.point`, `normal` and `axis` are in **weapon-local** coordinates. They give where the support
   hand's grip socket goes, which way the palm faces, and the grip axis.
@@ -394,6 +405,11 @@ from `provenance` and warns the user.
   - meshes without a normal map use level 0
   - estimated voxels = total surface area / voxel² ≤ 60,000,000; otherwise coarsen the voxel up to
     2× and report it, or fail `E_BUDGET`
+- **Dense models**: when the rig was built on decimated proxies (`mpm_proxy_of`), the bake skins the
+  full-detail originals from them (nearest proxy surface point, barycentric weights, §7 parity rules)
+  and bakes the originals. Weapons go through the same detail bake as the body.
+- A weapon is printed separately when `weapons_separate` is true or its entry has `merge: false`:
+  `exports/<name>_<weapon id>.stl`, same scale, no sole flattening.
 
 ---------------------------------------------------------------------------------------------------
 ## 15. Project format
@@ -455,9 +471,10 @@ Job types (args → result):
 | `suggest_markers` | – | `markers` (section 4) + `warnings[]` |
 | `suggest_mapping` | – (needs an armature in scene.blend) | `convention` (`mixamo` `ue` `biped` `rigify` `unknown`), `mapping` `{bone_name: canonical_bone or null}`, `unmapped_canonical[]`, `confidence` |
 | `rig` | `markers` or `mapping` (`{bone_name: canonical_name}`) | `rig_json`, `rig_glb`, `follow` stats; writes `rig/rig.blend` |
-| `convert_clip` | `source`, `file`, `pack_dir` | `clips[]` ids added |
+| `convert_clip` | `source`, `files[]` and/or `archives[]` + `extract_dir` (+ `include[]`), `pack_dir`, `pack` (index metadata) | `clips[]` ids added, `failed[]` |
+| `convert_weapon` | `file` (project-relative), `unit_scale` (optional), `out` (optional) | `weapon_glb` (`weapons/<stem>.glb`, static, metres, own origin and axes kept), `objects[]`, `tri_count`, `bbox_m`, `dims_m`, `principal_axis`, `normal_maps[]`, `unit_scale_used`, `suggested_unit_scale` (0.01 / 0.001 when the file is > 30 m / > 300 m long), `warnings[]` |
 | `dump_skinned` | `pose`, `sample` (list of `_ORIG_INDEX`) | `positions` (same order, posed, before subdivision, metres) |
-| `bake` | `pose`, `hands`, `weapons`, `bake` | `stl`, `preview_glb`, `report` (`printable.summarize` fields + gates) |
+| `bake` | `name`, `pose` (§13), `weapons` (§12), `bake` (§14); `hands` is informational (finger deltas are in `pose`) | `stl`, `preview_glb` (metres, MP_Printable / MP_TooThin materials), `report` (make_printable fields + `summary`), `weapons[]` `{id, stl, report}` for separate weapons, `gates` `{follow, posed, faces, levels_lowered, voxel_coarsened_to}`, `detail`, `unit_mm`, `standing_mm`, `weights_transferred[]`; also writes `exports/report.json` |
 
 Error codes:
 `E_BLENDER_VERSION E_ARGS E_IMPORT_FAILED E_NO_MESH E_ORIENTATION E_MARKERS_INCOMPLETE E_WEIGHTS_EMPTY E_FOLLOW_CHECK E_BUDGET E_REMESH E_EXPORT E_IO E_CANCELLED E_INTERNAL`
@@ -479,16 +496,32 @@ dialog.saveFile({defaultPath, filters}) -> path|null
 project.create({name, parentDir})-> {dir, project}
 project.open(path)               -> {dir, project}
 project.save({dir, project})     -> void
-project.importModel({dir, file}) -> {copied}          (copies into source/)
-project.addWeapon({dir, file})   -> {weaponFile}
+project.importModel({dir, file}) -> {copied[], skipped[], project}
+                                    (replaces source/ with the model and its sidecars, sets
+                                    project.source, resets project.rig to null; see below)
+project.addWeapon({dir, file})   -> {weaponFile, copied[], skipped[]}
+                                    (copies the weapon and its sidecars, by the importModel rules,
+                                    into weapons/<stem>/ (<stem>-2, ... if taken); weaponFile =
+                                    "weapons/<stem>/<file>"; a file already inside weapons/ is used as is)
 job.run({dir, type, args})       -> {jobId}           (events "job:event")
 job.cancel(jobId)                -> void
-library.list()                   -> packs[] (index.json contents + installed flag)
-library.install(packId)          -> void              (license accepted in UI first; events "library:progress")
-library.installFromFile({packId, file}) -> void
-library.importClip({file, source}) -> {packId, clipIds}
+library.list()                   -> PackInfo[] (packs.json entry + {installed, clips, licenseAccepted,
+                                    busy, stale})
+library.install({packId, acceptLicense: true})            -> {clips, failed[]}   (downloadable packs)
+library.installFromFile({packId, file, acceptLicense: true}) -> {clips, failed[]} (.zip, folder or .bvh)
+library.importClip({file, source}) -> {packId: "mine", clipIds}
+library.cancel(packId)           -> void
+library.remove(packId)           -> void
+library.saveThumb({packId, clipId, frame, png}) -> void   (png: Uint8Array, PNG, <= 512 KB)
 shell.showItemInFolder(path)     -> void
 ```
+`importModel` copies, keeping paths relative to the model's folder: the model; images beside it and in
+`textures/`; files with the model's stem; an FBX's `<stem>.fbm/`; an OBJ's `mtllib` files and their
+`map_*`/`bump`/`norm` textures; a .gltf's buffer and image URIs. Files are staged in `cache/` and
+`source/` is emptied only once all of them copied. References that resolve outside the model's folder
+(also through links), are missing, or are URLs are not copied and are listed in `skipped`. `copied` is
+project-relative with the model first.
+
 On the wire, invoke channels are named `mpm:<area>.<method>` (for example `mpm:app.info`); events
 use the bare event names below.
 Main → renderer events: `job:event {jobId, kind:"progress"|"result"|"error"|"log", payload}`,
@@ -558,6 +591,27 @@ source (URL + SHA-256 + size, or `"user_supplied": true`), the converter `source
 filter rules (for example CMU keywords). Third-party data is **never bundled** in the app or the repo.
 The license dialog must show the license name, a link, and this text: *"Non-commercial licenses: don't
 sell prints made with these poses."*
+
+```json
+{ "schema": "mpm.packs/1", "converter_version": 1,
+  "packs": [ { "id": "bandai1", "title": "...", "source": "bandai",
+               "license": "CC BY-NC 4.0", "license_url": "...", "nc": true, "exportable": true,
+               "attribution": "...", "homepage": "...",
+               "download": { "files": [ { "name": "x.bvh", "url": "https://raw.githubusercontent.com/<owner>/<repo>/<commit sha>/...",
+                                          "sha256": "...", "size": 123 } ] } },
+             { "id": "lafan1", "...": "...", "exportable": false,
+               "download": { "user_supplied": true, "accepts": [".zip"], "instructions": "..." },
+               "include": null } ] }
+```
+- URLs pin a commit SHA, never a branch.
+- Library folder: `<library>/raw/<pack>/` keeps the downloaded or extracted source files (so a newer
+  converter can re-convert without downloading); `<library>/packs/<pack>/` is the §9 pack. A pack is
+  built in `packs/<pack>.installing/` and renamed into place when complete.
+- `index.json` records `"converter_version"`; `library.list` reports `stale: true` when it is older
+  than packs.json's.
+- `library.install` refuses unless `acceptLicense` is true, and records the acceptance (pack id,
+  license, ISO time) in settings under `licenses`.
+- Pack `mine` holds the user's own clips (`importClip`): license "Your own", exportable, not NC.
 
 ---------------------------------------------------------------------------------------------------
 ## 21. Tests and fixtures

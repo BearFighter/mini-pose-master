@@ -154,6 +154,61 @@ def test_convert_job_subprocess():
         shutil.rmtree(d, ignore_errors=True)
 
 
+def test_pack_ids_unique_and_mixed_joints():
+    """Same-named takes from two folders get distinct ids; re-converting a file keeps its id; a clip
+    whose joint list differs from the pack's carries its own `joints`."""
+    d, p = _synth()
+    try:
+        pack = os.path.join(d, "pack")
+        meta = {"pack": "mine", "title": "My clips", "license": "Your own"}
+        conv = convert.convert_bvh(p, "bandai")
+        a = clipio.add_to_pack(pack, meta, conv, "subject1/take.bvh")
+        b = clipio.add_to_pack(pack, meta, conv, "subject2/take.bvh")
+        a2 = clipio.add_to_pack(pack, meta, conv, "subject1/take.bvh")
+        c = clipio.add_to_pack(pack, meta, conv, "x/subject2/take.bvh")
+        assert a == conv["id"] and b == "subject2_" + conv["id"] and a2 == a, (a, b, a2)
+        assert c == "subject2_%s_2" % conv["id"], c
+        other = dict(conv, id="cmu_take", names=conv["names"][:-1], frames=conv["frames"][:, :-1])
+        e = clipio.add_to_pack(pack, meta, other, "cmu_take.bvh")
+        index = json.load(open(os.path.join(pack, "index.json"), encoding="utf-8"))
+        by = {x["id"]: x for x in index["clips"]}
+        assert len(by) == 4 and "joints" not in by[a] and by[e]["joints"] == conv["names"][:-1], by[e].get("joints")
+        body, _ct = clipio.read_clip(os.path.join(pack, "clips", e + ".f32"))
+        assert body.shape[1] == len(conv["names"]) - 1
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def test_convert_archive_extract():
+    """Zip input (LaFAN1 / CMU are user-supplied archives): .bvh members only, filtered, no path escapes."""
+    import zipfile
+    sys.path.insert(0, os.path.join(REPO, "engine", "jobs"))
+    import convert_clip as CJ
+    d, p = _synth()
+    try:
+        z = os.path.join(d, "pack.zip")
+        data = open(p, "rb").read()
+        with zipfile.ZipFile(z, "w") as zf:
+            zf.writestr("lafan1/aiming1_subject1.bvh", data)
+            zf.writestr("lafan1/walk1_subject1.bvh", data)
+            zf.writestr("../escape_aiming.bvh", data)
+            zf.writestr("lafan1/readme.txt", "x")
+        out = CJ.extract_bvh([z], os.path.join(d, "raw"), include=["aiming"])
+        rel = sorted(os.path.relpath(f, os.path.join(d, "raw")).replace("\\", "/") for f in out)
+        assert rel == ["escape_aiming.bvh", "lafan1/aiming1_subject1.bvh"], rel
+        assert not os.path.exists(os.path.join(d, "escape_aiming.bvh"))
+        bad = os.path.join(d, "bad.zip")
+        open(bad, "wb").write(b"not a zip")
+        try:
+            CJ.extract_bvh([bad], os.path.join(d, "raw2"))
+        except Exception as e:  # noqa: BLE001
+            assert getattr(e, "code", None) == "E_IMPORT_FAILED", e
+        else:
+            raise AssertionError("a bad zip was accepted")
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def test_convert_real_bandai_optional():
     root = os.environ.get("MPM_BANDAI_DIR")
     if not root:
