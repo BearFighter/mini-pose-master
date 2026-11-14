@@ -20,6 +20,8 @@ export interface ViewerFlags {
   /** Increases every time the rig model has shown a new pose. */
   poseSeq: number
   boneCount: number
+  /** The bake preview GLB is shown. */
+  bakedLoaded: boolean
 }
 
 /** Canonical bones offered in the mapping table (grip bones are added by the rig job). */
@@ -67,7 +69,7 @@ export interface RigSlice {
   resetRig(): void
 }
 
-const NO_VIEWER: ViewerFlags = { previewLoaded: false, rigLoaded: false, pose: null, poseSeq: 0, boneCount: 0 }
+const NO_VIEWER: ViewerFlags = { previewLoaded: false, rigLoaded: false, pose: null, poseSeq: 0, boneCount: 0, bakedLoaded: false }
 
 function withDraftMarkers(data: ProjectData, markers: MarkerMap | null): ProjectData {
   return { ...data, rigDraft: { ...(data.rigDraft ?? { markers: null }), markers } }

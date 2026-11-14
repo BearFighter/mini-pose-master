@@ -1108,3 +1108,98 @@ button.link.inline {
   background: rgba(255, 169, 77, 0.25);
   color: #ffd3a3;
 }
+
+/* --- hands, weapons, export */
+
+.finger-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.finger {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+.finger-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.angle {
+  display: grid;
+  grid-template-columns: 52px 1fr 40px;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.angle input[type='range'] {
+  width: 100%;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+.angle-label {
+  color: var(--text-muted);
+}
+
+.angle-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.grip-report {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.grip-report .ok {
+  color: var(--ok);
+}
+
+input.num {
+  width: 84px;
+}
+
+.length {
+  align-self: flex-end;
+  padding-bottom: 6px;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.settings-grid input.num,
+.settings-grid select {
+  width: 100%;
+}
+
+pre.report {
+  margin: 0;
+  padding: 6px 8px;
+  max-height: 160px;
+  overflow: auto;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: pre-wrap;
+}
+
+.error-banner .detail {
+  color: var(--text-muted);
+}
+
+p.hint {
+  color: var(--accent);
+}

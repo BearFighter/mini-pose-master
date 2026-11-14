@@ -16,6 +16,8 @@ export interface ErrorBanner {
   /** Job error code (E_...), or 'ERROR' for other failures. */
   code: string
   message: string
+  /** The job error's detail (e.g. the follow-check or budget numbers). */
+  detail?: Record<string, unknown>
 }
 
 export interface JobsSlice {

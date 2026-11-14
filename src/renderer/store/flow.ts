@@ -13,8 +13,8 @@ export const defaultConfirm: ConfirmDiscard = (message) => {
   return typeof c === 'function' ? c(message) : true
 }
 
-export function errorBanner(e: unknown): { code: string; message: string } {
-  if (e instanceof JobError) return { code: e.code, message: e.message }
+export function errorBanner(e: unknown): { code: string; message: string; detail?: Record<string, unknown> } {
+  if (e instanceof JobError) return Object.keys(e.detail).length ? { code: e.code, message: e.message, detail: e.detail } : { code: e.code, message: e.message }
   return { code: 'ERROR', message: cleanError(e) }
 }
 

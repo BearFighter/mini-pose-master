@@ -10,9 +10,11 @@ import type { ComposeResult } from '../../shared/composePose'
 import { deriveJoints } from '../../shared/derive'
 import type { Deltas } from '../../shared/fk'
 import type { MarkerMap } from '../../shared/project'
+import { projectUrl } from '../lib/paths'
 import { computePose } from '../lib/pose'
 import { testPoseDeltas } from '../lib/testPose'
 import { useStore } from '../store'
+import { BakedPreview } from './BakedPreview'
 import { CameraRig } from './CameraRig'
 import { Markers } from './Markers'
 import { PreviewModel } from './PreviewModel'
@@ -42,7 +44,8 @@ export function usePoseResult(): ComposeResult | null {
   const preview = useStore((s) => s.posePreview)
   const clip = useStore((s) => s.loadedClip)
   const hands = useStore((s) => s.hands)
-  return useMemo(() => (rig ? computePose(rig, inputs, preview, clip, hands) : null), [rig, inputs, preview, clip, hands])
+  const weapons = useStore((s) => s.weapons)
+  return useMemo(() => (rig ? computePose(rig, inputs, preview, clip, hands, weapons) : null), [rig, inputs, preview, clip, hands, weapons])
 }
 
 function Scene() {
@@ -59,20 +62,24 @@ function Scene() {
   const joints = useDerivedJoints(markers)
   const pose = usePoseResult()
   const testDeltas = useMemo(() => (rigJson ? testPoseDeltas(rigJson) : NO_DELTAS), [rigJson])
+  const weapons = useStore((s) => s.posePreview?.weapons ?? s.weapons)
+  const bakedUrl = useStore((s) => (s.showBaked && s.bakeResult ? projectUrl(s.bakeResult.preview_glb, s.bakeVersion) : null))
 
   if (!hasProject) return null
   const rigReady = rigJson !== null && glbUrl !== null
   const showRig = rigReady && (step === 'rig' ? view === 'rig' : step !== 'import')
   const showMarkers = step === 'rig' && !showRig && rigPath === 'auto' && markers !== null
-  // The Rig step shows rest or the fixed test pose; the Pose step (and the later steps) the pose.
+  // The Rig step shows rest or the fixed test pose; the Pose step and the later steps the pose.
   const posing = step !== 'rig' && step !== 'import'
   const deltas = posing ? (pose?.deltas ?? NO_DELTAS) : testPose ? testDeltas : NO_DELTAS
   const label = posing ? 'pose' : testPose ? 'test' : 'rest'
+  const baked = step === 'export' && bakedUrl !== null
 
   return (
     <>
       {!showRig && previewUrl && <PreviewModel url={previewUrl} xray={showMarkers && xray} />}
-      {showRig && rigJson && glbUrl && (
+      {baked && bakedUrl && <BakedPreview url={bakedUrl} />}
+      {showRig && !baked && rigJson && glbUrl && (
         <RigModel
           url={glbUrl}
           rig={rigJson}
@@ -81,6 +88,8 @@ function Scene() {
           showBones={step === 'rig' || step === 'pose'}
           ground={posing}
           tools={step === 'pose'}
+          weapons={posing ? weapons : []}
+          weaponTools={step === 'weapons'}
         />
       )}
       {showMarkers && (

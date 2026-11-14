@@ -5,6 +5,7 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Group, Object3D, SkinnedMesh } from 'three'
 import type { Deltas } from '../../shared/fk'
+import type { WeaponEntry } from '../../shared/project'
 import { posedJoints } from '../../shared/fk'
 import { applyPoseState } from '../../shared/poseMath'
 import { bindRig, type BoundRig, type LoadedGltf, type RigJson } from '../../shared/rig'
@@ -14,6 +15,7 @@ import { afterFrames, boundsOf, disposeObject, loadGltf } from './gltf'
 import { PoseTools } from './PoseTools'
 import { groundModel, posedBounds, rigView, skinnedMeshes } from './rigView'
 import { SkeletonLines } from './SkeletonLines'
+import { WeaponsLayer } from './WeaponsLayer'
 
 interface Loaded {
   scene: Object3D
@@ -29,7 +31,9 @@ export function RigModel({
   label,
   showBones,
   ground,
-  tools
+  tools,
+  weapons = [],
+  weaponTools = false
 }: {
   url: string
   rig: RigJson
@@ -39,6 +43,10 @@ export function RigModel({
   showBones: boolean
   ground: boolean
   tools: boolean
+  /** Weapons on the grip sockets (with any preview). */
+  weapons?: WeaponEntry[]
+  /** Weapons step: weapon selection, gizmo and grip-point clicks. */
+  weaponTools?: boolean
 }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const group = useRef<Group>(null)
@@ -105,6 +113,7 @@ export function RigModel({
       <primitive object={loaded.scene} />
       {showBones && <SkeletonLines joints={joints} color="#7fb4ff" />}
       {tools && <PoseTools bound={loaded.bound} rig={rig} deltas={deltas} />}
+      {weapons.length > 0 && <WeaponsLayer bound={loaded.bound} rig={rig} deltas={deltas} weapons={weapons} tools={weaponTools} />}
     </group>
   )
 }

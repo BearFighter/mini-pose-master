@@ -319,31 +319,36 @@ Rules for what is stored:
   **`D_b = D_parent · F_b · L · F_bᵀ`**. This is consistent with section 5.
 
 ---------------------------------------------------------------------------------------------------
-## 11. Auto-grip (renderer, `autoGrip.ts`)
+## 11. Auto-grip (renderer, `src/renderer/lib/autoGrip.ts`)
 
 Inputs:
-- the posed rig with the hand pose as a starting point
-- weapon meshes with a three-mesh-bvh BVH (in world space)
-- `tol_m`: 0.2 mm converted to model metres using the current bake scale
+- the rig, and the composed deltas without this side's hand pose
+- the starting hand pose (the chosen preset; spread and roll are kept)
+- the weapons' triangles in Blender armature space, with a three-mesh-bvh BVH
+- `unit_mm` from the bake settings (§14)
 
-Per finger:
-- Process the joints proximal → distal (`.01`, `.02`, `.03`).
-- Increase flex in **2° steps** up to the per-joint maximum:
-  - fingers: [95, 110, 85]
-  - thumb: [60, 70, 85]
-- Stop a joint when the capsule of **that joint's bone or any bone distal to it** reaches a
-  capsule-to-mesh distance ≤ `tol_m`. Use the BVH `shapecast` for capsule distance; the capsule radius
-  is `rig.json` `radius_m`.
-- After a joint stops, continue with the next joint.
-- `locked` fingers (the user ticked "keep") are skipped. For example, the trigger index finger stays
-  extended for "rifle trigger, finger off trigger".
+Capsule distance `d` = distance from a finger bone's posed head→tail segment to the mesh, minus its
+`radius_m` (fallback `0.09 × hands[side].hand_width`). `d < 0` means the finger overlaps the weapon.
+
+Per finger that is not `locked`:
+1. If any of its capsules overlaps deeper than `pen_m` at the start (`pen_m` = 0.05 mm at print scale =
+   `0.05 / unit_mm` metres), restart that finger from flex `[0, 0, 0]`.
+2. Joints proximal → distal (`.01`, `.02`, `.03`): increase flex in **2° steps** up to the per-joint
+   maximum (fingers [95, 110, 85], thumb [60, 70, 85]). Stop a joint at the first step where the capsule
+   of that bone or any bone distal to it has `d ≤ 0` (touching). Then continue with the next joint.
+
+Result per finger: `touching` (min `d ≤ 0`) or not touching at maximum flex, and the minimum `d`. A
+touching finger overlaps by at most one step's travel: enough for the print to fuse hand and weapon,
+without burying the finger. (A tolerance at print scale is the wrong unit here: 0.2 mm at 40 mm is about
+9 mm on a 1.8 m model, a finger's width.)
 
 ---------------------------------------------------------------------------------------------------
 ## 12. Weapons, two-hand IK, plant feet
 
 Weapon entry (project file):
 ```json
-{ "id": "w1", "file": "weapons/rifle.glb", "attach_bone": "grip.R",
+{ "id": "w1", "file": "weapons/rifle.glb", "source": "weapons/rifle/rifle.fbx", "unit_scale": 1.0,
+  "attach_bone": "grip.R",
   "offset": { "t": [x,y,z], "q": [w,x,y,z], "s": 1.0 },
   "support": { "enabled": true, "side": "L", "point": [x,y,z], "normal": [x,y,z], "axis": [x,y,z] },
   "merge": true }
@@ -355,6 +360,8 @@ Weapon entry (project file):
   `attach_bone` is the canonical socket name (`grip.L` / `grip.R`). The weapon file is the converted
   `weapons/<name>.glb`; its geometry is read as Blender metres after glTF import. `offset` is in the attach
   bone's posed frame. Weapon geometry is in metres, in Blender frame.
+- `source` and `unit_scale` (optional) record what `convert_weapon` was run on, so the units can be
+  changed again after the project is reopened.
 - `support.point`, `normal` and `axis` are in **weapon-local** coordinates. They give where the support
   hand's grip socket goes, which way the palm faces, and the grip axis.
 - **Two-hand IK** (`ik.ts`, Python reference `engine/mpm/ik.py`):

@@ -16,6 +16,7 @@ import { api, cleanError, runJob, setJobProjectDir } from '../api'
 import { handMarkerNames, isFingerMarker, markerHeight } from '../lib/markers'
 import { pickOrientation, sameOrientation } from '../lib/orientation'
 import { projectName, projectUrl } from '../lib/paths'
+import { NO_HANDS, normaliseHands } from '../lib/hands'
 import { addRecent } from '../lib/recent'
 import { defaultConfirm, errorBanner, fail, fire, nextVersion, S, type ConfirmDiscard } from './flow'
 import { restorePoseFromProject, syncPoseToProject } from './poseActions'
@@ -68,7 +69,7 @@ export function subscribeEvents(): () => void {
  * Runs one job-backed flow: marks the job active (only one at a time from the UI), forwards
  * progress, records the result and shows failures in the banner.
  */
-async function withJob<T>(type: string, label: string, body: () => Promise<T>): Promise<T> {
+export async function withJob<T>(type: string, label: string, body: () => Promise<T>): Promise<T> {
   if (S().active) throw fail(new Error('Another job is still running'))
   S().jobStarted(type, label)
   try {
@@ -81,7 +82,7 @@ async function withJob<T>(type: string, label: string, body: () => Promise<T>): 
   }
 }
 
-function job<T>(type: string, args: Record<string, unknown>): Promise<T> {
+export function job<T>(type: string, args: Record<string, unknown>): Promise<T> {
   return runJob<T>(type, args, (p) => S().jobProgress(p), { onStart: (id) => S().jobIdKnown(id) })
 }
 
@@ -100,12 +101,11 @@ function initSlicesFromProject(data: ProjectData): void {
   s.setPoseNotice(null)
   s.setLoadedClip(null)
   s.selectBone(null)
-  s.setHandPose('L', data.hands?.L ?? null)
-  s.setHandPose('R', data.hands?.R ?? null)
-  s.setLockedFingers('L', data.hands?.locked?.L ?? [])
-  s.setLockedFingers('R', data.hands?.locked?.R ?? [])
+  s.setHands(normaliseHands(data.hands))
   s.setWeapons(Array.isArray(data.weapons) ? data.weapons : [])
+  s.selectWeapon(null)
   s.setBake(data.bake ?? null)
+  s.setBakeResult(null)
 }
 
 async function adoptProject(dir: string, data: ProjectData): Promise<void> {
@@ -191,6 +191,11 @@ export function closeProject(confirm: ConfirmDiscard = defaultConfirm): boolean 
   S().resetPoseInputs()
   S().setLoadedClip(null)
   S().setPoseNotice(null)
+  S().setHands(NO_HANDS)
+  S().setWeapons([])
+  S().selectWeapon(null)
+  S().setBake(null)
+  S().setBakeResult(null)
   S().setStep('import')
   return true
 }
@@ -212,7 +217,7 @@ export async function saveProject(): Promise<void> {
 // ---------------------------------------------------------------------------------------------------
 // Import step
 
-function requireProject(): { dir: string; data: ProjectData } {
+export function requireProject(): { dir: string; data: ProjectData } {
   const { dir, data } = S()
   if (!dir || !data) throw new Error('No project is open')
   return { dir, data }

@@ -3,6 +3,7 @@
 // errors, plus runJob, which turns a job's `job:event` stream into a promise.
 import { JOB_ERROR_CODES } from '../shared/ipc'
 import type {
+  AddWeaponResult,
   AppInfo,
   BlenderStatus,
   FileFilter,
@@ -105,7 +106,8 @@ export const api = {
         copied: r.copied,
         skipped: r.skipped,
         project: asProject(r.project)
-      }))
+      })),
+    addWeapon: (dir: string, file: string): Promise<AddWeaponResult> => call((m) => m.project.addWeapon({ dir, file }))
   },
   job: {
     cancel: (jobId: string): Promise<void> => call((m) => m.job.cancel(jobId))

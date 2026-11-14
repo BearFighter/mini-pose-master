@@ -9,6 +9,7 @@ import type { PoseState } from '../../shared/poseState'
 import type { ProjectData } from '../../shared/project'
 import { api } from '../api'
 import { ClipCache, fetchPackIndex, thumbFrame } from '../lib/clips'
+import { normaliseHands } from '../lib/hands'
 import {
   appendReach,
   appendRotate,
@@ -168,7 +169,7 @@ export function clearSource(): void {
 export function currentPose(withPreview = true): ComposeResult | null {
   const s = S()
   if (!s.rigJson) return null
-  return computePose(s.rigJson, s.poseInputs, withPreview ? s.posePreview : null, s.loadedClip, s.hands)
+  return computePose(s.rigJson, s.poseInputs, withPreview ? s.posePreview : null, s.loadedClip, s.hands, s.weapons)
 }
 
 /** project.pose for the committed inputs; null without a rig. */
@@ -179,18 +180,26 @@ export function currentPoseState(): PoseState | null {
 }
 
 /**
- * Writes project.pose from the inputs. When the source clip is not available and the inputs are the
- * ones the project was saved with, the stored pose (made with the clip) is kept as it is.
+ * Writes project.pose (deltas from composePose with hands and weapons), project.hands and
+ * project.weapons from the pose history's current state. When the source clip is not available and the
+ * inputs are the ones the project was saved with, the stored pose (made with the clip) is kept as it is.
  */
 export function syncPoseToProject(markDirty: boolean): void {
   const s = S()
-  if (!s.data || !s.rigJson) return
-  const stored = s.data.pose
-  const missing = clipMissing(s.poseInputs, s.loadedClip)
-  if (missing && stored && JSON.stringify(stored.provenance) === JSON.stringify(provenanceFromInputs(s.poseInputs))) return
-  const pose = currentPoseState()
-  if (!pose) return
-  const data: ProjectData = { ...s.data, pose }
+  if (!s.data) return
+  const hands = { L: s.hands.L, R: s.hands.R, locked: { L: [...s.hands.locked.L], R: [...s.hands.locked.R] } }
+  let pose = s.data.pose
+  if (s.rigJson) {
+    const missing = clipMissing(s.poseInputs, s.loadedClip)
+    const keep =
+      missing &&
+      pose &&
+      JSON.stringify(pose.provenance) === JSON.stringify(provenanceFromInputs(s.poseInputs)) &&
+      JSON.stringify(normaliseHands(s.data.hands)) === JSON.stringify(hands) &&
+      JSON.stringify(s.data.weapons ?? []) === JSON.stringify(s.weapons)
+    if (!keep) pose = currentPoseState() ?? pose
+  }
+  const data: ProjectData = { ...s.data, pose, hands, weapons: s.weapons }
   useStore.setState(markDirty ? { data, dirty: true } : { data })
 }
 

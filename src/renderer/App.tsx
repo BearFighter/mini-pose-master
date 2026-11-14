@@ -3,6 +3,8 @@
 import { useEffect } from 'react'
 import { BlenderSetup } from './components/BlenderSetup'
 import { ErrorBanner } from './components/ErrorBanner'
+import { ExportStep } from './components/ExportStep'
+import { HandsStep } from './components/HandsStep'
 import { ImportStep } from './components/ImportStep'
 import { LibraryPanel } from './components/LibraryPanel'
 import { PoseStep } from './components/PoseStep'
@@ -12,6 +14,7 @@ import { nextKey, Scrubber } from './components/Scrubber'
 import { StatusBar } from './components/StatusBar'
 import { StepNav } from './components/StepNav'
 import { TitleBar } from './components/TitleBar'
+import { WeaponsStep } from './components/WeaponsStep'
 import { fire, loadAppInfo, refreshBlender, saveProject, subscribeEvents } from './store/actions'
 import { useStore } from './store'
 import { commitFrame, redoPose, undoPose } from './store/poseActions'
@@ -45,7 +48,7 @@ function useAppLifecycle(): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const s = useStore.getState()
-      if (s.step !== 'pose' || isTextField(e.target)) return
+      if (!['pose', 'hands', 'weapons'].includes(s.step) || isTextField(e.target)) return
       const mod = e.ctrlKey || e.metaKey
       const key = e.key.toLowerCase()
       if (mod && !e.altKey && key === 'z') {
@@ -59,7 +62,7 @@ function useAppLifecycle(): void {
         redoPose()
         return
       }
-      if (!mod && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      if (!mod && s.step === 'pose' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         const src = s.poseInputs.source
         const clip = s.loadedClip
         if (!src || !clip || clip.clipId !== src.clip || clip.packId !== src.pack) return
@@ -98,6 +101,9 @@ function StepPanel() {
   if (step === 'import') return <ImportStep />
   if (step === 'rig') return <RigStep />
   if (step === 'pose') return <PoseStep />
+  if (step === 'hands') return <HandsStep />
+  if (step === 'weapons') return <WeaponsStep />
+  if (step === 'export') return <ExportStep />
   return (
     <div className="step-panel">
       <h2>{STEP_LABELS[step]}</h2>

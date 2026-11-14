@@ -3,8 +3,9 @@
 // has fetch and WebSocket). Builds the app, launches Electron with MPM_E2E=1, a temp user-data
 // folder and the installed Blender, then: new project -> import fixtures/out/apose/apose.fbx ->
 // find joints -> build rig -> test pose -> import a synthetic BVH clip -> scrub, rotate, mirror,
-// undo -> save and reopen -> renderer vs Blender (dump_skinned) parity. Screenshots go to
-// tests/e2e/out/*.png.
+// undo -> save and reopen -> renderer vs Blender (dump_skinned) parity -> sword with a two-handed
+// grip -> auto-grip -> attach-frame and vertex parity -> bake at 40 mm and an STL check.
+// Screenshots go to tests/e2e/out/*.png.
 //
 //   node tests/e2e/drive.mjs [--no-build] [--keep]
 //
@@ -20,6 +21,7 @@ const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const OUT = path.join(REPO, 'tests', 'e2e', 'out')
 const PORT = Number(process.env.MPM_E2E_PORT || 9333)
 const FIXTURE = path.join(REPO, 'fixtures', 'out', 'apose', 'apose.fbx')
+const SWORD = path.join(REPO, 'fixtures', 'out', 'sword', 'sword.glb')
 const DEFAULT_BLENDER = {
   win32: 'C:/Program Files/Blender Foundation/Blender 5.2/blender.exe',
   darwin: '/Applications/Blender.app/Contents/MacOS/Blender',
@@ -30,7 +32,7 @@ const args = new Set(process.argv.slice(2))
 
 const JOB_TIMEOUT_MS = 10 * 60 * 1000
 /** The whole run, build excluded. */
-const RUN_TIMEOUT_MS = 25 * 60 * 1000
+const RUN_TIMEOUT_MS = 60 * 60 * 1000
 const SCREENSHOT_TIMEOUT_MS = 15_000
 const SCREENSHOT_ATTEMPTS = 4
 /** Makes the page draw a new frame (the R3F canvas redraws on resize), then waits two frames. */
@@ -292,9 +294,61 @@ function syntheticWaveBvh() {
 }
 
 // ---------------------------------------------------------------------------------------------------
+// Binary STL check: identical vertices merged, then every edge must have exactly two faces.
+
+function checkStl(file) {
+  const buf = readFileSync(file)
+  const n = buf.readUInt32LE(80)
+  if (84 + n * 50 !== buf.length) throw new Error(`${file} is not a binary STL (${buf.length} bytes for ${n} triangles)`)
+  const ids = new Map()
+  const lo = [Infinity, Infinity, Infinity]
+  const hi = [-Infinity, -Infinity, -Infinity]
+  const vid = (o) => {
+    const x = buf.readFloatLE(o)
+    const y = buf.readFloatLE(o + 4)
+    const z = buf.readFloatLE(o + 8)
+    const key = `${x},${y},${z}`
+    let id = ids.get(key)
+    if (id === undefined) {
+      id = ids.size
+      ids.set(key, id)
+      ;[x, y, z].forEach((v, k) => {
+        lo[k] = Math.min(lo[k], v)
+        hi[k] = Math.max(hi[k], v)
+      })
+    }
+    return id
+  }
+  const edges = new Map()
+  let degenerate = 0
+  for (let t = 0; t < n; t++) {
+    const o = 84 + t * 50 + 12
+    const v = [vid(o), vid(o + 12), vid(o + 24)]
+    if (v[0] === v[1] || v[1] === v[2] || v[0] === v[2]) {
+      degenerate++
+      continue
+    }
+    for (let k = 0; k < 3; k++) {
+      const a = v[k]
+      const b = v[(k + 1) % 3]
+      const key = a < b ? a * 2 ** 26 + b : b * 2 ** 26 + a
+      edges.set(key, (edges.get(key) ?? 0) + 1)
+    }
+  }
+  let open = 0
+  let over = 0
+  for (const c of edges.values()) {
+    if (c === 1) open++
+    else if (c > 2) over++
+  }
+  return { triangles: n, vertices: ids.size, open, over, degenerate, dims: hi.map((h, k) => h - lo[k]) }
+}
+
+// ---------------------------------------------------------------------------------------------------
 // The run
 
 async function main() {
+  if (!existsSync(SWORD)) throw new Error(`fixture missing: ${SWORD} (run fixtures/generate.py)`)
   if (!existsSync(FIXTURE)) {
     throw new Error(`fixture missing: ${FIXTURE}\nGenerate it with: blender -b --factory-startup --python-exit-code 1 -P fixtures/generate.py`)
   }
@@ -313,6 +367,9 @@ async function main() {
   let cdp = null
   let ok = false
   let parity = null
+  let parity2 = null
+  let autoGripMs = null
+  let bakeInfo = null
   const watchdog = setTimeout(() => {
     console.error(`[e2e] FAIL: the run took longer than ${RUN_TIMEOUT_MS / 60000} min`)
     killTree(child)
@@ -467,8 +524,99 @@ async function main() {
     assert(count >= 450, `about 500 vertices sampled (${count})`)
     assert(worst < 1e-4, `renderer vs Blender under 1e-4 m (${worst})`)
     parity = { worst, count }
+
+    // --- Weapons, hands, export (WP9)
+    const swordTruth = JSON.parse(readFileSync(SWORD.replace(/\.glb$/, '.truth.json'), 'utf8')).grips
+    state = await cdp.evaluate(`window.__mpmTest.setStep('weapons')`)
+    log('add weapon', path.relative(REPO, SWORD))
+    const weapon = await cdp.evaluate(`window.__mpmTest.addWeapon(${JSON.stringify(SWORD)})`)
+    assert(weapon.id && weapon.file === 'weapons/sword.glb' && weapon.attach_bone === 'grip.R', `weapon added (${JSON.stringify(weapon)})`)
+    // from the rest pose, the right hand in front of the body so the left hand can reach the sword
+    state = await cdp.evaluate('window.__mpmTest.clearPose()')
+    assert(state.pose.inputs.source === null && state.pose.inputs.edits.length === 0, 'rest pose')
+    state = await cdp.evaluate(`window.__mpmTest.reach('R', [-0.03, -0.3, 1.2])`)
+    state = await cdp.evaluate(`window.__mpmTest.setGripPoint(${JSON.stringify(weapon.id)}, ${JSON.stringify(swordTruth.main.point)})`)
+    const support = { point: swordTruth.support.point, normal: swordTruth.support.palm_normal, axis: swordTruth.support.axis }
+    state = await cdp.evaluate(`window.__mpmTest.setSupport(${JSON.stringify(weapon.id)}, ${JSON.stringify(support)})`)
+    assert(state.weapons[0].support.enabled === true && state.weapons[0].support.side === 'L', 'two-handed, left hand supports')
+    const short = (await cdp.evaluate('window.__mpmTest.supportShort()'))[weapon.id]
+    log(`support hand short by ${(short * 1000).toFixed(3)} mm`)
+    assert(short < 0.001, `the left hand reaches the support grip (${short} m)`)
+    state = await cdp.evaluate(`window.__mpmTest.selectWeapon(${JSON.stringify(weapon.id)}, 'move')`)
+    await cdp.evaluate(`window.__mpmTest.focusJoint('wrist_R', 0.45)`)
+    await waitPose(cdp)
+    await cdp.screenshot('09-weapon-gizmo.png')
+
+    // auto-grip the right hand from the sword preset
+    state = await cdp.evaluate(`window.__mpmTest.setStep('hands')`)
+    state = await cdp.evaluate(`window.__mpmTest.preset('R', 'sword')`)
+    const grip = await cdp.evaluate(`window.__mpmTest.autoGrip('R')`)
+    const fingerText = Object.entries(grip.fingers)
+      .map(([f, r]) => `${f} ${r.touching ? 'touching' : r.maxed ? 'max flex' : 'NOT touching'} (${(r.minDistance_m * 1000).toFixed(1)} mm)`)
+      .join(', ')
+    log(`auto-grip R in ${grip.ms.toFixed(1)} ms: ${fingerText}`)
+    for (const [f, r] of Object.entries(grip.fingers)) assert(r.touching || r.maxed, `${f} touching or at max flex`)
+    autoGripMs = grip.ms
+    state = await cdp.evaluate(`window.__mpmTest.preset('L', 'sword')`)
+    const gripL = await cdp.evaluate(`window.__mpmTest.autoGrip('L')`)
+    log(`auto-grip L in ${gripL.ms.toFixed(1)} ms`)
+    await cdp.evaluate(`window.__mpmTest.focusJoint('wrist_R', 0.16)`)
+    await waitPose(cdp)
+    await cdp.screenshot('08-hands.png')
+    await cdp.evaluate(`window.__mpmTest.focusJoint('wrist_L', 0.24)`)
+    await waitPose(cdp)
+    await cdp.screenshot('10-two-handed.png')
+
+    // parity with the hands and the weapon: grip.R's attach frame and the skinned vertices
+    const sampled2 = await cdp.evaluate('window.__mpmTest.posedSample(500)')
+    const dumped2 = await cdp.evaluate(`window.__mpmTest.dumpSkinned(${JSON.stringify(sampled2.sample)})`)
+    assert(!dumped2.error, `dump_skinned ran (${JSON.stringify(dumped2.error)})`)
+    let worst2 = 0
+    let count2 = 0
+    for (const [mesh, idx] of Object.entries(sampled2.sample)) {
+      idx.forEach((_v, k) => {
+        const a = sampled2.positions[mesh][k]
+        const b = dumped2.meshes[mesh].positions[k]
+        worst2 = Math.max(worst2, Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]))
+        count2++
+      })
+    }
+    const gi = await cdp.evaluate(`window.__mpmTest.boneIndex('grip.R')`)
+    const ours = await cdp.evaluate(`window.__mpmTest.attachFrame('grip.R')`)
+    const theirs = dumped2.bones.find((b) => b.index === gi)?.matrix
+    assert(ours && theirs, 'attach frames available')
+    let worstT = 0
+    let worstR = 0
+    for (let r = 0; r < 3; r++) {
+      worstT = Math.max(worstT, Math.abs(ours[r][3] - theirs[r][3]))
+      for (let c = 0; c < 3; c++) worstR = Math.max(worstR, Math.abs(ours[r][c] - theirs[r][c]))
+    }
+    log(`parity with hands and weapon: vertices ${worst2.toExponential(3)} m over ${count2}; grip.R attach frame translation ${worstT.toExponential(3)} m, rotation ${worstR.toExponential(3)}`)
+    assert(worst2 < 1e-4, `vertex parity with hand poses under 1e-4 m (${worst2})`)
+    assert(worstT < 1e-5 && worstR < 1e-5, `grip.R attach frame within 1e-5 (${worstT}, ${worstR})`)
+    parity2 = { worst: worst2, count: count2, attachT: worstT, attachR: worstR }
+
+    // bake at 40 mm with the sword merged
+    log('bake at 40 mm (this takes a while)')
+    const baked = await cdp.evaluate('window.__mpmTest.bake(40)', 30 * 60 * 1000)
+    assert(baked.stl && !baked.error, `bake ran (${JSON.stringify(baked.error ?? null)})`)
+    const stl = checkStl(path.join(projectDir, baked.stl))
+    log(
+      `bake: ${baked.seconds} s in Blender (${baked.wall_s.toFixed(1)} s in all); STL ${stl.triangles} triangles, ${stl.vertices} vertices, ` +
+        `${stl.open} open edges, ${stl.over} edges with >2 faces, ${stl.degenerate} degenerate, size ${stl.dims.map((d) => d.toFixed(2)).join(' x ')} mm`
+    )
+    assert(stl.open === 0, `no open edges (${stl.open})`)
+    assert(stl.over === 0, `no edges with more than two faces (${stl.over})`)
+    assert(stl.dims[2] <= 40.05, `height <= 40.05 mm (${stl.dims[2]})`)
+    bakeInfo = { seconds: baked.seconds, wall: baked.wall_s, stl }
+    await cdp.waitFor('window.__mpmTest.state().viewer.bakedLoaded', 'the bake preview', 60_000)
+    await sleep(700)
+    await cdp.screenshot('11-export.png')
     ok = true
-    log(`PASS (parity ${parity.worst.toExponential(3)} m)`)
+    log(
+      `PASS (parity ${parity.worst.toExponential(3)} m; with hands ${parity2.worst.toExponential(3)} m, attach ${parity2.attachT.toExponential(2)} / ${parity2.attachR.toExponential(2)}; ` +
+        `auto-grip ${autoGripMs.toFixed(1)} ms; bake ${bakeInfo.seconds} s; STL ${bakeInfo.stl.open} open / ${bakeInfo.stl.over} non-manifold, height ${bakeInfo.stl.dims[2].toFixed(2)} mm)`
+    )
   } catch (e) {
     if (cdp) {
       const state = await cdp.evaluate('JSON.stringify(window.__mpmTest.state(), null, 1)', 5000).catch(() => null)

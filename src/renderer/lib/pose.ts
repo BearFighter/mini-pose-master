@@ -12,6 +12,7 @@ import { canonicalIndex, posedBones, topoOrder } from '../../shared/fk'
 import type { HandPose } from '../../shared/handPose'
 import { inv, mul, q4, wxyz } from '../../shared/math'
 import type { PoseProvenance, PoseState } from '../../shared/poseState'
+import type { WeaponEntry } from '../../shared/project'
 import { makePoseState } from '../../shared/poseState'
 import type { RigJson } from '../../shared/rig'
 import { mirrorName } from '../../shared/skeleton'
@@ -31,10 +32,15 @@ export interface PoseInputsState {
   edits: EditOp[]
 }
 
-/** A live preview on top of the committed inputs: a scrubbed frame and/or a gizmo drag in progress. */
+/**
+ * A live preview on top of the committed state: a scrubbed frame, a bone gizmo drag in progress, a finger
+ * slider being dragged (hands) or a weapon being moved (weapons).
+ */
 export interface PosePreview {
   frame?: number
   op?: EditOp
+  hands?: HandsLike
+  weapons?: WeaponEntry[]
 }
 
 export const REST_INPUTS: PoseInputsState = { source: null, mirrored: false, planted: true, edits: [] }
@@ -79,32 +85,49 @@ let memo: {
   preview: PosePreview | null
   clip: LoadedClipLike | null
   hands: HandsLike | null
+  weapons: WeaponEntry[] | null
+  skipHand: 'L' | 'R' | null
   result: ComposeResult
 } | null = null
 
 /**
- * composePose for the current state, memoised on (rig, inputs, preview, loaded clip, hands) by
- * identity, so the viewer, the panels and the save all share one computation per change.
+ * composePose for the current state (pose inputs, hands, weapons, plus any preview), memoised on its
+ * arguments by identity, so the viewer, the panels and the save share one computation per change.
+ * `skipHand` leaves out one side's hand pose (auto-grip starts from the pose without it).
  */
 export function computePose(
   rig: RigJson,
   inputs: PoseInputsState,
   preview: PosePreview | null,
   clip: LoadedClipLike | null,
-  hands: HandsLike | null
+  hands: HandsLike | null,
+  weapons: WeaponEntry[] | null = null,
+  skipHand: 'L' | 'R' | null = null
 ): ComposeResult {
-  if (memo && memo.rig === rig && memo.inputs === inputs && memo.preview === preview && memo.clip === clip && memo.hands === hands) {
+  if (
+    memo &&
+    memo.rig === rig &&
+    memo.inputs === inputs &&
+    memo.preview === preview &&
+    memo.clip === clip &&
+    memo.hands === hands &&
+    memo.weapons === weapons &&
+    memo.skipHand === skipHand
+  ) {
     return memo.result
   }
   const eff = effectiveInputs(inputs, preview)
+  const h = preview?.hands ?? hands
+  const w = preview?.weapons ?? weapons
   const composeInputs: PoseInputs = {
     mirrored: eff.mirrored,
     planted: eff.planted,
     edits: eff.edits,
-    hands: hands ? { L: hands.L, R: hands.R } : undefined
+    hands: h ? { L: skipHand === 'L' ? null : h.L, R: skipHand === 'R' ? null : h.R } : undefined,
+    weapons: w ?? undefined
   }
   const result = composePose(rig, composeInputs, sourceFrame(eff, clip))
-  memo = { rig, inputs, preview, clip, hands, result }
+  memo = { rig, inputs, preview, clip, hands, weapons, skipHand, result }
   return result
 }
 

@@ -23,6 +23,16 @@ import {
 } from './store/poseActions'
 import type { Step } from './store/ui'
 import { gizmoInfo, rigView } from './viewer/rigView'
+import { vecB2T } from '../shared/coords'
+import { canonicalIndex, posedJoints } from '../shared/fk'
+import { attachFrame } from '../shared/weaponPose'
+import type { BakeJobResult } from '../shared/jobResults'
+import type { WeaponEntry } from '../shared/project'
+import { runBake } from './store/exportActions'
+import { choosePreset, runAutoGrip } from './store/handActions'
+import { clearEdits, clearSource, commitReach } from './store/poseActions'
+import { addWeapon, setGripPoint, setSupport } from './store/weaponActions'
+import type { WeaponTool } from './store/weapons'
 
 /** Vertex indices (= _ORIG_INDEX) spread evenly over the rig's meshes, `count` in all. */
 function sampleIndices(count: number): Record<string, number[]> {
@@ -74,6 +84,9 @@ export function testState() {
     },
     viewer: s.viewer,
     testPose: s.testPose,
+    weapons: s.weapons,
+    hands: s.hands,
+    bake: s.bakeResult ? { stl: s.bakeResult.stl, preview: s.bakeResult.preview_glb, seconds: s.bakeResult.seconds } : null,
     pose: {
       inputs: s.poseInputs,
       undo: s.undo.length,
@@ -118,6 +131,25 @@ export interface MpmTestHook {
   posedSample(count: number): { sample: Record<string, number[]>; positions: Record<string, Vec3[]> }
   /** Where the gizmo is on screen and which axis the pointer hovers. */
   gizmo(): ReturnType<typeof gizmoInfo>
+  addWeapon(file: string): Promise<WeaponEntry>
+  setGripPoint(id: string, point: Vec3): ReturnType<typeof testState>
+  setSupport(id: string, support: { point: Vec3; normal: Vec3; axis: Vec3 }): ReturnType<typeof testState>
+  selectWeapon(id: string | null, tool?: WeaponTool): ReturnType<typeof testState>
+  reach(side: 'L' | 'R', target: Vec3): ReturnType<typeof testState>
+  /** "Rest pose" + "Clear edits". */
+  clearPose(): ReturnType<typeof testState>
+  preset(side: 'L' | 'R', name: string): ReturnType<typeof testState>
+  autoGrip(side: 'L' | 'R'): Promise<{ fingers: Record<string, { touching: boolean; maxed: boolean; minDistance_m: number; locked: boolean }>; ms: number }>
+  /** Per weapon id, how far the support hand falls short (metres). */
+  supportShort(): Record<string, number>
+  /** rig.json index of a canonical bone. */
+  boneIndex(canonical: string): number
+  /** The renderer's attach frame of a canonical bone, as 4x4 rows (Blender armature space). */
+  attachFrame(canonical: string): number[][] | null
+  /** Points the camera at a posed joint (Blender name), `radius` metres around it. */
+  focusJoint(joint: string, radius: number): ReturnType<typeof testState>
+  bake(heightMm: number): Promise<BakeJobResult & { wall_s: number }>
+  setShowBaked(on: boolean): ReturnType<typeof testState>
   /** Runs the dump_skinned job with the current pose state. */
   dumpSkinned(sample: Record<string, number[]>): Promise<{ meshes: Record<string, { indices: number[]; positions: Vec3[] }> } | { error: { code: JobErrorCode; message: string } }>
 }
@@ -194,6 +226,73 @@ export function installTestHook(): void {
       return testState()
     },
     poseState: () => currentPoseState(),
+    addWeapon: (file) => addWeapon(file),
+    setGripPoint: (id, point) => {
+      setGripPoint(id, point)
+      return testState()
+    },
+    setSupport: (id, support) => {
+      setSupport(id, support)
+      return testState()
+    },
+    selectWeapon: (id, tool) => {
+      useStore.getState().selectWeapon(id)
+      if (tool) useStore.getState().setWeaponTool(tool)
+      return testState()
+    },
+    clearPose: () => {
+      clearSource()
+      clearEdits()
+      return testState()
+    },
+    reach: (side, target) => {
+      commitReach(side, target)
+      return testState()
+    },
+    preset: (side, name) => {
+      choosePreset(side, name)
+      return testState()
+    },
+    autoGrip: async (side) => {
+      const r = await runAutoGrip(side)
+      return { fingers: r.fingers, ms: useStore.getState().gripReport[side]?.ms ?? 0 }
+    },
+    supportShort: () => currentPose(false)?.supportShort ?? {},
+    boneIndex: (canonical) => {
+      const rig = useStore.getState().rigJson
+      return rig ? canonicalIndex(rig).get(canonical) ?? -1 : -1
+    },
+    attachFrame: (canonical) => {
+      const rig = useStore.getState().rigJson
+      const pose = currentPose(false)
+      const A = rig && pose ? attachFrame(rig, pose.deltas, canonical) : null
+      if (!A) return null
+      const e = A.elements // column-major
+      return [0, 1, 2, 3].map((r) => [0, 1, 2, 3].map((c) => e[c * 4 + r]))
+    },
+    focusJoint: (joint, radius) => {
+      const s = useStore.getState()
+      const pose = currentPose(false)
+      if (s.rigJson && pose) {
+        const j = posedJoints(s.rigJson, pose.deltas)[joint]
+        if (j) {
+          const t = vecB2T([j.x, j.y, j.z])
+          s.requestFocus([t.x, t.y, t.z + 0], radius, true)
+        }
+      }
+      return testState()
+    },
+    bake: async (heightMm) => {
+      useStore.getState().setStep('export')
+      useStore.getState().updateBake({ scale: { mode: 'height_mm', height_mm: heightMm } })
+      const t0 = performance.now()
+      const r = await runBake()
+      return { ...r, wall_s: (performance.now() - t0) / 1000 }
+    },
+    setShowBaked: (on) => {
+      useStore.getState().setShowBaked(on)
+      return testState()
+    },
     gizmo: () => gizmoInfo(),
     posedSample: (count) => {
       const bound = rigView.bound
