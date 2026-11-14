@@ -420,7 +420,7 @@ cache/     anything regenerable
 - All paths are relative to the project folder.
 - Licensed clip data is never embedded; projects store only `provenance`.
 - Loading a `schemaVersion` older than the current one runs migrations in
-  `src/shared/project-migrations.ts`.
+  `electron/main/projects.ts` (`MIGRATIONS` / `migrateProject`).
 
 ---------------------------------------------------------------------------------------------------
 ## 16. Jobs
