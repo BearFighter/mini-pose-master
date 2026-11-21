@@ -1,7 +1,7 @@
 {
   "name": "mini-pose-master",
   "productName": "Mini Pose Master",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Rig, pose and arm purchased 3D characters, then bake them into watertight, high-detail STL miniatures.",
   "license": "GPL-3.0-or-later",
   "author": "BearFighter",
