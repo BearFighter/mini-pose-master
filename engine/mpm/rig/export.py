@@ -144,6 +144,27 @@ def export_rig(arm, meshes, project_dir, joints, hands, kind, canonical=None, fi
             "gltf_node": node_index[b.name],
             "radius_m": _finger_radius(b.name, meshes, b) if is_finger else None,
         })
+    # A finger bone no vertex follows (claws, fused fingers) still needs a thickness for auto-grip:
+    # the median of that hand's other finger bones, else a share of the hand width.
+    def side_of(x):
+        cn = x.get("canonical") or ""
+        return cn[-1] if cn[-2:] in (".L", ".R") else None
+
+    for b in out_bones:
+        cn = b.get("canonical")
+        is_finger = (finger_bones is not None and b["name"] in finger_bones) or                     (finger_bones is None and cn is not None and SK.is_finger_bone(cn))
+        if b["radius_m"] is None and is_finger:
+            side = side_of(b)
+            same = [x["radius_m"] for x in out_bones if x["radius_m"] is not None
+                    and (side is None or side_of(x) == side)]
+            hw = (hands.get(side) or {}).get("hand_width") if side else None
+            b["radius_m"] = round(float(np.median(same)), 6) if same else round(0.09 * float(hw), 6) if hw else 0.008
+    widths = [float(h["hand_width"]) for h in hands.values() if h and h.get("hand_width")]
+    if widths:
+        cap = 0.22 * max(widths)
+        for b in out_bones:
+            if b["radius_m"] is not None and b["radius_m"] > cap:
+                b["radius_m"] = round(cap, 6)
     zs = [ (o.matrix_world @ v.co).z for o in meshes for v in o.data.vertices ]
     sums = _weight_sums(meshes, names)
     key = json.dumps([(b["name"], b["parent"], b["head"], b["tail"], b["rest_q"]) for b in out_bones]

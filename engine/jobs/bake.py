@@ -20,7 +20,7 @@ from mpm import printable, protocol  # noqa: E402
 from mpm.dump import hips_index  # noqa: E402
 
 DEFAULT_BAKE = {"schema": "mpm.bake/1", "scale": {"mode": "height_mm", "height_mm": 40}, "detail": 2.0,
-                "flatten_mm": 0.5, "base_mm": 0, "min_wall_mm": 0.6, "weapons_separate": False,
+                "flatten_mm": 0.5, "base_mm": 0, "min_wall_mm": 0.6, "thicken_thin": True, "weapons_separate": False,
                 "max_tris": 2_000_000}
 
 
@@ -77,7 +77,8 @@ def main(job):
     settings = printable.Settings(height=standing_mm, base_diameter=float(bake.get("base_mm") or 0),
                                   min_thickness=float(bake.get("min_wall_mm", 0.6)),
                                   flatten=float(bake.get("flatten_mm", 0.5)), unit_mm=unit,
-                                  max_tris=int(bake.get("max_tris", 2_000_000)))
+                                  max_tris=int(bake.get("max_tris", 2_000_000)),
+                                  thicken=bool(bake.get("thicken_thin", True)))
     merged = [by_src[o.name] for o in meshes]
     separate = []
     for w, objs in placed:
@@ -102,7 +103,7 @@ def main(job):
         protocol.progress("weapons", 0.90, "baking weapon %d of %d" % (n + 1, len(separate)))
         wname = "%s_%s" % (name, _safe(w.get("id"), "weapon%d" % (n + 1)))
         ws = printable.Settings(height=standing_mm, base_diameter=0, min_thickness=settings.min_thickness,
-                                flatten=0.0, unit_mm=unit, max_tris=settings.max_tris)
+                                flatten=0.0, unit_mm=unit, max_tris=settings.max_tris, thicken=settings.thicken)
         wstl = os.path.join(out_dir, wname + ".stl")
         _wob, wrep = printable.make_printable(parts, ws, wstl, wname)
         wrep["summary"] = printable.summarize(wrep)

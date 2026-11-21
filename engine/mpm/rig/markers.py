@@ -187,6 +187,9 @@ def _arm_basis(A):
     return u, v
 
 
+HAND_ZONE = 0.12  # fraction of height from the fingertip inward that counts as the hand
+
+
 def _trace_arm(P, H, sign, hand, S0, A, L0):
     gap, half = 0.012 * H, 0.006 * H
     u, v = _arm_basis(A)
@@ -223,13 +226,19 @@ def _trace_arm(P, H, sign, hand, S0, A, L0):
         k = int(np.argmin([np.linalg.norm(c - ref) for c in cents]))
         c = cl[k]
         ext = float(max(np.ptp(uv[c, 0]), np.ptp(uv[c, 1])))
-        if extents and ext > 2.5 * float(np.median(extents)):
+        # Inside the hand (fingertips taper, the palm is wide) widths say nothing about the torso: judge the
+        # merge only past the hand, against arm slices. Real models tripped this at the palm.
+        in_hand = t_now > ft_t - HAND_ZONE * H
+        if not in_hand and len(extents) >= 4 and ext > 2.5 * float(np.median(extents)):
             break  # merged into the torso
         if np.any(np.abs(pts[c, 0]) < 0.05 * H):
             break
-        extents.append(ext)
+        if not in_hand:
+            extents.append(ext)
         prev = cents[k]
-        traced.append((t_now, pts[c].mean(0), ext))
+        q = uv[c] - uv[c].mean(0)
+        ev = np.sqrt(np.maximum(np.linalg.eigvalsh(q.T @ q / max(len(q), 1)), 1e-12))
+        traced.append((t_now, pts[c].mean(0), ext, float(ev[1] / ev[0])))  # last: flatness (1 = round)
     if len(traced) < 8:
         raise RuntimeError("couldn't trace the arm (%d steps)" % len(traced))
     return {"traced": traced, "ft_t": ft_t, "t_sep": traced[-1][0], "A": A}
@@ -238,12 +247,41 @@ def _trace_arm(P, H, sign, hand, S0, A, L0):
 ELBOW_FRACTION = 0.55
 
 
-def _arm_joints(tr, H, P, sign):
+WRIST_ROUND = 1.5        # a cross-section this round or rounder is no longer the hand
+WRIST_FLAT = 2.0         # the palm is at least this flat
+WRIST_BEFORE = 0.015     # the landmark may lie this fraction of the height nearer the fingers than the estimate
+WRIST_AFTER = 0.025      # ...or this much nearer the elbow
+
+
+def wrist_from_estimate(tr, t_est, H):
+    """The traced slice to use as the wrist, given where the fingers say it should be (t along the arm
+    axis). Going from the fingers toward the elbow, the hand is flat and the wrist is the first round
+    cross-section after the palm. If that landmark lies near the estimate it is the wrist; otherwise the
+    estimate itself (gauntlets and bracers hide or fake the landmark)."""
+    traced = tr["traced"]   # from the hand toward the shoulder (t decreasing)
+    palm, land = 0, None
+    for p in traced:
+        if p[3] >= WRIST_FLAT:
+            palm += 1
+        elif palm >= 3 and p[3] <= WRIST_ROUND:
+            land = p
+            break
+    if land is not None and -WRIST_BEFORE * H <= t_est - land[0] <= WRIST_AFTER * H:
+        return land
+    return min(traced, key=lambda p: abs(p[0] - t_est))
+
+
+def _arm_joints(tr, H, P, sign, t_wrist=None, snap=True):
     traced, t_sep, ft_t = tr["traced"], tr["t_sep"], tr["ft_t"]
-    cand = [p for p in traced if 0.05 * H <= ft_t - p[0] <= 0.15 * H]
-    if not cand:
-        raise RuntimeError("no wrist candidates")
-    w = min(cand, key=lambda p: p[2])
+    if t_wrist is not None:
+        w = wrist_from_estimate(tr, t_wrist, H) if snap else min(traced, key=lambda p: abs(p[0] - t_wrist))
+    else:
+        # First pass, before the fingers are known: the narrowest place near the hand. On gauntleted or
+        # gloved characters that is often the palm, so the job refines it from the fingers afterwards.
+        cand = [p for p in traced if 0.05 * H <= ft_t - p[0] <= 0.15 * H]
+        if not cand:
+            raise RuntimeError("no wrist candidates")
+        w = min(cand, key=lambda p: p[2])
     wrist, t_w = w[1], w[0]
     near = [p for p in traced if p[0] <= t_sep + 0.10 * H]
     if len(near) < 2:
@@ -369,9 +407,12 @@ def _all_fallback(H, centre, warnings, why):
     return m
 
 
-def analyse_body_markers(objs):
+def analyse_body_markers(objs, wrist_at=None, snap=True):
     """Like suggest_body_markers but returns {"markers", "warnings", "H", "theta": {"L", "R"}}; theta is the arm
-    elevation below horizontal in degrees (None when it could not be measured). Never raises."""
+    elevation below horizontal in degrees (None when it could not be measured). Never raises.
+
+    wrist_at: optional {"L": point, "R": point}, where the wrist should be according to the fingers (see
+    suggest_markers); the wrist is then taken there instead of at the narrowest place near the hand."""
     warnings = []
     theta = {"L": None, "R": None}
     try:
@@ -402,7 +443,10 @@ def analyse_body_markers(objs):
         try:
             hand, S0, A, L0, theta[s] = _hand_and_axis(P, H, sign)
             tr = _trace_arm(P, H, sign, hand, S0, A, L0)
-            sh, el, wr, meth = _arm_joints(tr, H, P, sign)
+            t_w = None
+            if wrist_at and wrist_at.get(s) is not None:
+                t_w = float((np.asarray(wrist_at[s], float) - S0) @ A)
+            sh, el, wr, meth = _arm_joints(tr, H, P, sign, t_w, snap)
             J["shoulder_" + s], J["elbow_" + s], J["wrist_" + s] = (sh, meth), (el, 1.0), (wr, 1.0)
         except Exception as e:  # noqa: BLE001
             for n in ("shoulder", "elbow", "wrist"):
@@ -463,3 +507,82 @@ def suggest_body_markers(objs):
     except Exception as e:  # noqa: BLE001
         warnings = []
         return _all_fallback(1.8, (0.0, 0.0), warnings, "unexpected failure: %s" % e), warnings
+
+
+PALM_PER_FINGER = 1.1   # wrist to knuckle, in middle-finger lengths (knuckle taken where the fingers part)
+
+
+def wrist_estimates(markers, finger_markers, hand_info):
+    """Where each wrist should be according to that hand's fingers: one palm length behind the middle
+    knuckle, toward the current wrist. Only for hands whose fingers were really found."""
+    out = {}
+    for s in ("L", "R"):
+        info = (hand_info or {}).get(s)
+        if not info or info.get("fallback"):
+            continue
+        try:
+            k0 = np.array(finger_markers["middle_0_" + s]["p"], float)
+            lens = [float(np.linalg.norm(np.array(finger_markers["%s_tip_%s" % (f, s)]["p"], float)
+                                         - np.array(finger_markers["%s_0_%s" % (f, s)]["p"], float)))
+                    for f in ("index", "middle", "ring")
+                    if finger_markers["%s_tip_%s" % (f, s)]["confidence"] >= 0.7]
+            wr = np.array(markers["wrist_" + s]["p"], float)
+            el = np.array(markers["elbow_" + s]["p"], float)
+        except (KeyError, TypeError):
+            continue
+        if not lens:
+            continue
+        back = wr - k0
+        if np.linalg.norm(back) < 1e-6 or float(back @ (el - k0)) <= 0:
+            back = el - k0
+        out[s] = k0 + back / np.linalg.norm(back) * PALM_PER_FINGER * max(lens)
+    return out
+
+
+def suggest_all(objs):
+    """Body and finger markers together: {"markers", "warnings", "H"}. Never raises.
+
+    Two passes. The wrist cannot be found from the arm alone on gloved or armoured characters (the
+    narrowest place near the hand is often the palm), but the fingers can; they then say where the wrist is
+    (a hand is about twice as long as its middle finger), and arm and fingers are measured again from it."""
+    from . import fingers
+    res = analyse_body_markers(objs)
+    H = res["H"]
+    fm, fw, info = fingers.suggest_finger_markers(objs, res["markers"], H)
+    est = wrist_estimates(res["markers"], fm, info)
+    if len(est) == 1:
+        # One hand read, the other not: on a symmetric body the other wrist is the mirror image.
+        (s, p), = est.items()
+        o = "R" if s == "L" else "L"
+        try:
+            a = np.array(res["markers"]["shoulder_" + s]["p"], float) * np.array([-1.0, 1.0, 1.0])
+            b = np.array(res["markers"]["shoulder_" + o]["p"], float)
+            if np.linalg.norm(a - b) < 0.02 * H:
+                est[o] = np.asarray(p, float) * np.array([-1.0, 1.0, 1.0])
+        except (KeyError, TypeError):
+            pass
+    if est:
+        res2 = analyse_body_markers(objs, wrist_at=est)
+        if len(est) == 2:
+            # Mirror-image hands must get mirror-image wrists. If snapping to a round cross-section
+            # disagrees between the sides (a bracer or pouch on one arm), use the plain estimates.
+            l = np.array(res2["markers"]["wrist_L"]["p"], float)
+            r = np.array(res2["markers"]["wrist_R"]["p"], float) * np.array([-1.0, 1.0, 1.0])
+            el = np.array(est["L"], float)
+            er = np.array(est["R"], float) * np.array([-1.0, 1.0, 1.0])
+            if np.linalg.norm(el - er) < 0.015 * H and np.linalg.norm(l - r) > 0.02 * H:
+                res2 = analyse_body_markers(objs, wrist_at=est, snap=False)
+        fm2, fw2, info2 = fingers.suggest_finger_markers(objs, res2["markers"], H)
+        for s in est:
+            if (info2.get(s) or {}).get("fallback", True):
+                # The fingers were read from the first wrist but not from the refined one: they are where
+                # they are either way, so keep the first reading rather than a mirrored or template hand.
+                for k in [k for k in fm2 if k.endswith("_" + s)]:
+                    del fm2[k]
+                fm2.update({k: v for k, v in fm.items() if k.endswith("_" + s)})
+                tag = "hand %s:" % s
+                fw2 = [w for w in fw2 if not w.startswith(tag)] + [w for w in fw if w.startswith(tag)]
+        res, fm, fw = res2, fm2, fw2
+    markers = dict(res["markers"])
+    markers.update(fm)
+    return {"markers": markers, "warnings": list(res["warnings"]) + list(fw), "H": H}

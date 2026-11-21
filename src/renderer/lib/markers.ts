@@ -2,6 +2,7 @@
 // Pure marker helpers for the Rig step: confidence colours, mirrored edits, list order, hand groups.
 import type { Vec3 } from '../../shared/coords'
 import type { MarkerMap } from '../../shared/project'
+import { deriveJoints } from '../../shared/derive'
 import { JOINTS, mirrorName } from '../../shared/skeleton'
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low'
@@ -60,9 +61,46 @@ export function markerListOrder(markers: MarkerMap): string[] {
   })
 }
 
-const FINGER_RE = /^(thumb|index|middle|ring|pinky)_(0|tip)_[LR]$/
+const FINGER_RE = /^(thumb|index|middle|ring|pinky)_(0|1|2|tip)_[LR]$/
+const FINGERS = ['thumb', 'index', 'middle', 'ring', 'pinky'] as const
 
-/** Knuckle and fingertip markers, drawn smaller. */
+/** The optional knuckle points of one hand: the two middle joints of each finger. */
+export function knucklePointNames(side: 'L' | 'R'): string[] {
+  return FINGERS.flatMap((f) => [`${f}_1_${side}`, `${f}_2_${side}`])
+}
+
+/** Does this hand have any knuckle points (found by the engine on curved fingers, or added by the user)? */
+export function hasKnucklePoints(markers: MarkerMap, side: 'L' | 'R'): boolean {
+  return knucklePointNames(side).some((n) => markers[n] !== undefined)
+}
+
+/**
+ * Adds the missing knuckle points of one hand where the straight-line rule puts them now, so they can be
+ * dragged onto a curved finger. Existing ones are kept. Returns a new map (the same one if nothing can be
+ * derived yet).
+ */
+export function addKnucklePoints(markers: MarkerMap, side: 'L' | 'R'): MarkerMap {
+  let J: ReturnType<typeof deriveJoints>
+  try {
+    J = deriveJoints(Object.fromEntries(Object.entries(markers).map(([k, v]) => [k, v.p])))
+  } catch {
+    return markers
+  }
+  const out: MarkerMap = { ...markers }
+  for (const n of knucklePointNames(side)) {
+    if (out[n] || !J[n]) continue
+    out[n] = { p: [J[n].x, J[n].y, J[n].z], confidence: 1, source: 'user' }
+  }
+  return out
+}
+
+/** Removes one hand's knuckle points: its fingers go back to straight lines from knuckle to tip. */
+export function removeKnucklePoints(markers: MarkerMap, side: 'L' | 'R'): MarkerMap {
+  const drop = new Set(knucklePointNames(side))
+  return Object.fromEntries(Object.entries(markers).filter(([k]) => !drop.has(k)))
+}
+
+/** Finger markers (knuckles, knuckle points, fingertips), drawn smaller. */
 export function isFingerMarker(name: string): boolean {
   return FINGER_RE.test(name)
 }
@@ -70,6 +108,15 @@ export function isFingerMarker(name: string): boolean {
 /** The markers of one hand: the wrist and the finger markers of that side. */
 export function handMarkerNames(markers: MarkerMap, side: 'L' | 'R'): string[] {
   return Object.keys(markers).filter((n) => n === `wrist_${side}` || (isFingerMarker(n) && n.endsWith(`_${side}`)))
+}
+
+/**
+ * The hand a "Find joints" warning is about: the job starts those with "hand L" / "hand R"
+ * (for example "hand R: fingers not found (...); mirrored from the left hand - check them").
+ */
+export function warningHand(warning: string): 'L' | 'R' | null {
+  const m = /^hand ([LR])(?![A-Za-z0-9_])/.exec(warning)
+  return m ? (m[1] as 'L' | 'R') : null
 }
 
 /** Rough standing height from the markers (head_top down to the lowest foot marker). */

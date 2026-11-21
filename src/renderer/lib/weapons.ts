@@ -108,9 +108,9 @@ export function unitMm(rig: RigJson, bake: BakeSettings | null): number {
   return sc.height_mm / Math.max(rig.height_m, 1e-9)
 }
 
-/** Auto-grip tolerance: 0.2 mm at print scale, in model metres (contracts section 11). */
-export function gripTolerance(rig: RigJson, bake: BakeSettings | null): number {
-  return 0.2 / unitMm(rig, bake)
+/** Model metres -> millimetres at print scale. */
+export function printMm(metres: number, mmPerMetre: number): number {
+  return metres * mmPerMetre
 }
 
 /** A weapon's longest dimension at print scale. */

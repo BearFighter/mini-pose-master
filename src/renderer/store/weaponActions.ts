@@ -20,9 +20,6 @@ export const UNIT_CHOICES: { value: number; label: string }[] = [
   { value: 0.001, label: 'millimetres' }
 ]
 
-/** The source file of each weapon converted in this session (to convert it again with other units). */
-const sourceOf = new Map<string, string>()
-
 function commitWeapons(weapons: WeaponEntry[]): void {
   S().commitHistory({ weapons })
   syncPoseToProject(true)
@@ -37,32 +34,52 @@ function update(id: string, change: (w: WeaponEntry) => WeaponEntry): void {
 const center = (r: ConvertWeaponResult): Vec3 => [0, 1, 2].map((k) => (r.bbox_m[0][k] + r.bbox_m[1][k]) / 2) as Vec3
 
 /**
- * "Add weapon…": copies the file (and its sidecars) into weapons/, converts it, and attaches it to a
- * free hand socket with the default placement (principal axis along the grip, bbox centre on the socket).
+ * A converted weapon becomes an entry: attached to a free hand socket with the default placement
+ * (principal axis along the grip, bbox centre on the socket), selected, and saved. `source` is the
+ * project file convert_weapon ran on.
  */
+async function adoptConverted(result: ConvertWeaponResult, source: string): Promise<WeaponEntry> {
+  const weapons = S().weapons
+  const id = nextWeaponId(weapons.map((w) => w.id))
+  const used = new Set(weapons.map((w) => w.attach_bone))
+  const attach = used.has('grip.R') && !used.has('grip.L') ? 'grip.L' : 'grip.R'
+  const entry: WeaponEntry = {
+    id,
+    file: result.weapon_glb,
+    source,
+    unit_scale: result.unit_scale_used,
+    attach_bone: attach,
+    offset: defaultOffset(result.principal_axis, center(result), 1),
+    support: { enabled: false, side: attach === 'grip.R' ? 'L' : 'R', point: center(result), normal: [-1, 0, 0], axis: result.principal_axis },
+    merge: true
+  }
+  S().setWeaponInfo(id, result)
+  commitWeapons([...weapons, entry])
+  S().selectWeapon(id)
+  await saveProject()
+  return entry
+}
+
+/** "Add weapon…": copies the file (and its sidecars) into weapons/, converts it, and attaches it. */
 export function addWeapon(file: string): Promise<WeaponEntry> {
   return withJob('convert_weapon', 'Converting the weapon', async () => {
     const { dir } = requireProject()
     const added = await api.project.addWeapon(dir, file)
     const result = await job<ConvertWeaponResult>('convert_weapon', { file: added.weaponFile })
-    const weapons = S().weapons
-    const id = nextWeaponId(weapons.map((w) => w.id))
-    const used = new Set(weapons.map((w) => w.attach_bone))
-    const attach = used.has('grip.R') && !used.has('grip.L') ? 'grip.L' : 'grip.R'
-    const entry: WeaponEntry = {
-      id,
-      file: result.weapon_glb,
-      attach_bone: attach,
-      offset: defaultOffset(result.principal_axis, center(result), 1),
-      support: { enabled: false, side: attach === 'grip.R' ? 'L' : 'R', point: center(result), normal: [-1, 0, 0], axis: result.principal_axis },
-      merge: true
-    }
-    sourceOf.set(id, added.weaponFile)
-    S().setWeaponInfo(id, result)
-    commitWeapons([...weapons, entry])
-    S().selectWeapon(id)
-    await saveProject()
-    return entry
+    return adoptConverted(result, added.weaponFile)
+  })
+}
+
+/**
+ * "Add as weapon" for a prop the import left out of the character: `file` is its project-relative
+ * `props/<name>.glb`, already inside the project, so nothing is copied; the convert job writes
+ * `weapons/<name>.glb` and the rest is the add-weapon flow.
+ */
+export function addPropWeapon(file: string): Promise<WeaponEntry> {
+  return withJob('convert_weapon', 'Converting the weapon', async () => {
+    requireProject()
+    const result = await job<ConvertWeaponResult>('convert_weapon', { file })
+    return adoptConverted(result, file)
   })
 }
 
@@ -71,19 +88,23 @@ export async function chooseAndAddWeapon(): Promise<void> {
   if (file) await addWeapon(file)
 }
 
-/** Converts the weapon again with a unit scale; grip and support points scale with it. */
+/**
+ * Converts the weapon again with a unit scale (from the entry's `source`); grip and support points scale
+ * with it. Entries without `source` (older projects) can't: their Units choice is hidden.
+ */
 export function setWeaponUnits(id: string, unitScale: number): Promise<void> {
   return withJob('convert_weapon', 'Converting the weapon', async () => {
-    const src = sourceOf.get(id)
     const w = S().weapons.find((x) => x.id === id)
-    if (!src || !w) throw new Error('Add the weapon again to change its units')
-    const before = S().weaponInfo[id]?.unit_scale_used ?? 1
-    const result = await job<ConvertWeaponResult>('convert_weapon', { file: src, unit_scale: unitScale, out: w.file })
+    if (!w) throw new Error('No such weapon')
+    if (!w.source) throw new Error('This weapon was added by an older version: add it again to change its units')
+    const before = w.unit_scale ?? S().weaponInfo[id]?.unit_scale_used ?? 1
+    const result = await job<ConvertWeaponResult>('convert_weapon', { file: w.source, unit_scale: unitScale, out: w.file })
     const k = result.unit_scale_used / before
     S().setWeaponInfo(id, result)
     S().bumpWeaponVersion(id)
     update(id, (x) => ({
       ...x,
+      unit_scale: result.unit_scale_used,
       offset: { ...x.offset, t: x.offset.t.map((v) => v * k) as Vec3 },
       support: x.support ? { ...x.support, point: x.support.point.map((v) => v * k) as Vec3 } : x.support
     }))

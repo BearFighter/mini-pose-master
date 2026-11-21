@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Auto-grip (contracts section 11): close each unlocked finger, proximal joint first, in 2 degree steps
-// until a finger capsule comes within tol_m of the weapon. Pure: rig, deltas, triangles in, hand pose out.
+// until a finger capsule touches the weapon (d <= 0). A finger whose preset already overlaps deeper than
+// pen_m starts again from flex [0, 0, 0]. Pure: rig, deltas, triangles in, hand pose out.
 import { Box3, BufferGeometry, Float32BufferAttribute, Line3, Vector3 } from 'three'
 import { MeshBVH } from 'three-mesh-bvh'
 import type { Deltas } from '../../shared/fk'
@@ -78,13 +79,22 @@ export function capsuleDistance(bvh: MeshBVH, c: Capsule): number {
 }
 
 export interface FingerGrip {
-  /** Within tol_m of the weapon. */
+  /** Some capsule of the finger has d <= 0 (it touches or slightly overlaps the weapon). */
   touching: boolean
   /** Not touching with every joint at its maximum flex. */
   maxed: boolean
-  /** Smallest capsule distance of the finger, metres. */
+  /** Smallest capsule distance d of the finger, metres (negative: overlap). */
   minDistance_m: number
   locked: boolean
+  /** The preset overlapped deeper than pen_m, so the finger started again from flex [0, 0, 0]. */
+  reopened: boolean
+  /**
+   * Smallest d where the closing started (the preset, or flex [0, 0, 0] when reopened). A finger that
+   * starts clear (d > 0) ends overlapping by at most one step; one that already overlaps there keeps it.
+   */
+  startDistance_m: number
+  /** The finger's largest travel in one 2 degree step (its length times the step angle): the deepest overlap a touching finger can end with. */
+  stepTravel_m: number
 }
 
 export interface AutoGripInput {
@@ -96,7 +106,8 @@ export interface AutoGripInput {
   start: HandPose
   locked: string[]
   bvh: MeshBVH
-  tolM: number
+  /** Millimetres per model metre at the bake scale (contracts section 14). */
+  unitMm: number
 }
 
 export interface AutoGripResult {
@@ -104,39 +115,69 @@ export interface AutoGripResult {
   fingers: Record<FingerName, FingerGrip>
 }
 
-/** Smallest capsule distance of a finger's bones from joint k (0-based) outwards. */
-function distalDistance(input: AutoGripInput, pose: HandPose, finger: FingerName, from: number): number {
+/** pen_m: the overlap a preset may start with before the finger is reopened, 0.05 mm at print scale. */
+export function penetrationLimit(unitMm: number): number {
+  return 0.05 / unitMm
+}
+
+/** A finger's largest one-step travel: its straight length (all its bones) times 2 degrees in radians. */
+export function stepTravel(rig: RigJson, side: 'L' | 'R', finger: FingerName): number {
+  const caps = fingerCapsules(rig, {}, side, finger)
+  const length = caps.reduce((n, c) => n + c.a.distanceTo(c.b), 0)
+  return (length * STEP_DEG * Math.PI) / 180
+}
+
+/** Capsule distances of a finger's bones (.01, .02, .03) with this hand pose. */
+function fingerDistances(input: AutoGripInput, pose: HandPose, finger: FingerName): number[] {
   const deltas = applyHandPose(input.rig, input.base, input.side, pose)
-  const caps = fingerCapsules(input.rig, deltas, input.side, finger).slice(from)
-  return Math.min(...caps.map((c) => capsuleDistance(input.bvh, c)))
+  return fingerCapsules(input.rig, deltas, input.side, finger).map((c) => capsuleDistance(input.bvh, c))
 }
 
 /**
- * Per unlocked finger, joints proximal -> distal: flex grows in 2 degree steps up to the joint's maximum
- * and stops as soon as that bone's capsule, or any capsule distal to it, is within tol_m; then the next
- * joint. Spread and roll stay as in the start pose; locked fingers are left alone.
+ * Per unlocked finger: if any capsule starts deeper than pen_m, the finger starts again from flex
+ * [0, 0, 0] (spread and roll kept). Then joints proximal -> distal: flex grows in 2 degree steps up to the
+ * joint's maximum and stops at the first step where that bone's capsule, or a distal one, has d <= 0;
+ * then the next joint. Locked fingers are left alone.
  */
 export function autoGrip(input: AutoGripInput): AutoGripResult {
-  const { rig, side, tolM } = input
+  const { rig, side } = input
+  const pen = penetrationLimit(input.unitMm)
   const pose = cloneHand(input.start)
   pose.name = `${input.start.name}+grip`
   const fingers = {} as Record<FingerName, FingerGrip>
   for (const f of FINGERS) {
     const locked = input.locked.includes(f)
-    const caps = fingerCapsules(rig, input.base, side, f).length
     const max = MAX_FLEX[f === 'thumb' ? 'thumb' : 'finger']
-    if (!locked) {
+    let ds = fingerDistances(input, pose, f)
+    const caps = ds.length
+    let reopened = false
+    let start = caps ? Math.min(...ds) : Infinity
+    if (!locked && caps > 0) {
+      if (start < -pen) {
+        pose.fingers[f].flex = [0, 0, 0]
+        reopened = true
+        start = Math.min(...fingerDistances(input, pose, f))
+      }
       for (let k = 0; k < caps; k++) {
-        let d = distalDistance(input, pose, f, k)
-        while (d > tolM && pose.fingers[f].flex[k] < max[k]) {
+        let d = Math.min(...fingerDistances(input, pose, f).slice(k))
+        while (d > 0 && pose.fingers[f].flex[k] < max[k]) {
           pose.fingers[f].flex[k] = Math.min(pose.fingers[f].flex[k] + STEP_DEG, max[k])
-          d = distalDistance(input, pose, f, k)
+          d = Math.min(...fingerDistances(input, pose, f).slice(k))
         }
       }
+      ds = fingerDistances(input, pose, f)
     }
-    const d = caps ? distalDistance(input, pose, f, 0) : Infinity
+    const d = caps ? Math.min(...ds) : Infinity
     const atMax = pose.fingers[f].flex.slice(0, caps).every((v, k) => v >= max[k])
-    fingers[f] = { touching: d <= tolM, maxed: d > tolM && atMax, minDistance_m: d, locked }
+    fingers[f] = {
+      touching: d <= 0,
+      maxed: d > 0 && atMax,
+      minDistance_m: d,
+      locked,
+      reopened,
+      startDistance_m: start,
+      stepTravel_m: stepTravel(rig, side, f)
+    }
   }
   return { pose, fingers }
 }

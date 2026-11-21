@@ -11,9 +11,9 @@ import type { HandPose } from '../../src/shared/handPose'
 import { applyHandPose } from '../../src/shared/handPose'
 import { q4, quatAngleDeg, wxyz } from '../../src/shared/math'
 import { mirrorPose } from '../../src/shared/mirror'
-import type { RigJson } from '../../src/shared/rig'
+import { autoRig } from './helpers/skeletonRig'
 
-const AUTO = JSON.parse(readFileSync(join(__dirname, 'fixtures', 'rig_auto_apose.json'), 'utf8')) as RigJson
+const AUTO = autoRig()
 const PRESETS = JSON.parse(readFileSync(join(__dirname, '..', '..', 'resources', 'hand_presets.json'), 'utf8'))
 const FIST = PRESETS.presets.find((p: HandPose) => p.name === 'fist') as HandPose
 const ci = canonicalIndex(AUTO)

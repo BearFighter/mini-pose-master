@@ -9,7 +9,7 @@ import { autoGrip, buildBVH, type AutoGripResult } from '../lib/autoGrip'
 import { copyHand, handFromPreset, presetByName, setLocked, type HandsState } from '../lib/hands'
 import { projectUrl } from '../lib/paths'
 import { computePose } from '../lib/pose'
-import { gripTolerance, weaponTriangles } from '../lib/weapons'
+import { unitMm, weaponTriangles } from '../lib/weapons'
 import { loadWeaponScene } from '../viewer/weaponView'
 import { fail, S } from './flow'
 import { syncPoseToProject } from './poseActions'
@@ -98,10 +98,10 @@ export async function runAutoGrip(side: 'L' | 'R'): Promise<AutoGripResult> {
     start,
     locked: s.hands.locked[side],
     bvh: buildBVH(all),
-    tolM: gripTolerance(rig, s.bake)
+    unitMm: unitMm(rig, s.bake)
   })
   const ms = performance.now() - t0
   commitHand(side, result.pose)
-  S().setGripReport(side, { fingers: result.fingers, ms })
+  S().setGripReport(side, { fingers: result.fingers, ms, unitMm: unitMm(rig, s.bake) })
   return result
 }

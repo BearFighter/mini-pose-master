@@ -16,6 +16,7 @@ export interface WeaponsSlice {
   weaponVersion: Record<string, number>
   weaponSelection: string | null
   weaponTool: WeaponTool
+  /** Loads a project's weapons: the convert results and versions of the last project are dropped. */
   setWeapons(weapons: WeaponEntry[]): void
   setWeaponInfo(id: string, info: ConvertWeaponResult | null): void
   bumpWeaponVersion(id: string): void
@@ -29,7 +30,7 @@ export const createWeaponsSlice: SliceCreator<WeaponsSlice> = (set, get) => ({
   weaponVersion: {},
   weaponSelection: null,
   weaponTool: 'move',
-  setWeapons: (weapons) => set({ weapons }),
+  setWeapons: (weapons) => set({ weapons, weaponInfo: {}, weaponVersion: {} }),
   setWeaponInfo: (id, info) => {
     const all = { ...get().weaponInfo }
     if (info) all[id] = info

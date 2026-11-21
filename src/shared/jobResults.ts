@@ -3,9 +3,33 @@
 import type { Vec3 } from './coords'
 import type { MarkerMap, Orientation } from './project'
 
+/** One mesh of the imported file (`all_objects` of the `import` job result). */
+export interface ImportObjectInfo {
+  name: string
+  verts: number
+  tris: number
+  /** It is part of the character now. */
+  included: boolean
+  /** The automatic rule takes it for a prop shipped beside the character. */
+  prop: boolean
+}
+
+/** A left-out prop group, saved in the project as a GLB (metres, oriented like the character). */
+export interface ImportProp {
+  /** Project-relative, `props/<name>.glb`. */
+  file: string
+  objects: string[]
+  dims_m: Vec3
+}
+
 /** `import` job result. */
 export interface ImportJobResult {
+  /** The meshes that are part of the character. */
   objects: { name: string; verts: number; tris: number; materials: string[] }[]
+  /** Every mesh in the file. Absent in a `rig/import.json` written by an older version. */
+  all_objects?: ImportObjectInfo[]
+  /** The props left out of the character. Absent in a `rig/import.json` written by an older version. */
+  props?: ImportProp[]
   materials: string[]
   normal_maps: { object: string; material: string; image: string; size: [number, number] }[]
   has_armature: boolean
@@ -80,6 +104,9 @@ export interface PrintableReport {
   stl: string
   stl_mb: number
   thin_area_pct: number
+  /** Present when thin walls were thickened: the share before. */
+  thin_area_pct_before?: number
+  thickened_verts?: number
   min_thickness_mm: number
   pieces: number
   seconds: number

@@ -14,7 +14,7 @@ src/shared/         code shared by main + renderer (types, skeleton loader, math
 engine/mpm/         Python package run INSIDE Blender (bundled Python 3.13, numpy 2.3, NO scipy)
 engine/jobs/        one Blender entry script per job type: engine/jobs/<type>.py
 resources/          skeleton.json, hand_presets.json, packs.json, icons. Copied to the app as-is.
-fixtures/           fixture generator (Blender script) + generated fixtures (small ones committed)
+fixtures/           generator (Blender script) for two original weapons; real kits are never in the repo (§21)
 tests/              tests/ts (vitest), tests/engine (run through Blender), tests/golden
 docs/               this file, briefs/, coding-rules.md
 ```
@@ -71,16 +71,21 @@ Markers file (`rig/markers.json`):
 { "schema": "mpm.markers/1",
   "markers": { "<joint name>": { "p": [x,y,z], "confidence": 0.0-1.0, "source": "auto"|"user" } } }
 ```
-Only **editable** joints (skeleton.json) appear. Derived joints are computed by the engine at rig
-time, and identically in TS for preview, from these rules (`lerp(a, b, t) = a + t·(b − a)`):
+Only **editable** joints (skeleton.json) appear, plus the **optional knuckle points**: the two
+middle joints of a finger (`<f>_1_s`, `<f>_2_s`, always as a pair) for curved fingers and claws. When a
+knuckle point is given it is that joint; otherwise the rule below applies. The engine suggests them
+only for a finger whose centreline strays more than 0.3 finger-widths from the straight line from
+knuckle to tip; the Rig step can add or remove them per hand. Derived joints are computed by the
+engine at rig time, and identically in TS for preview, from these rules
+(`lerp(a, b, t) = a + t·(b − a)`):
 
 | Derived | Rule |
 |---|---|
 | `spine0` | `lerp(pelvis, chest, 0.30)` |
 | `clav_s` | `(sign·0.18·|shoulder_s.x − pelvis.x|, neck.y, neck.z − 0.25·(neck.z − shoulder_s.z))`, where `sign` = +1 for L and −1 for R, and x is measured from the pelvis x |
 | `ball_s` | `lerp(ankle_s, toe_s, 0.68)` with z = `0.35·ankle_s.z + 0.65·toe_s.z` |
-| `<f>_1_s`, `<f>_2_s` for index/middle/ring/pinky | `lerp(<f>_0, <f>_tip, 0.45)` and `lerp(<f>_0, <f>_tip, 0.75)` |
-| `thumb_1_s`, `thumb_2_s` | `lerp(thumb_0, thumb_tip, 0.40)` and `lerp(thumb_0, thumb_tip, 0.73)` |
+| `<f>_1_s`, `<f>_2_s` for index/middle/ring/pinky | `lerp(<f>_0, <f>_tip, 0.45)` and `lerp(<f>_0, <f>_tip, 0.75)`, unless given as knuckle points |
+| `thumb_1_s`, `thumb_2_s` | `lerp(thumb_0, thumb_tip, 0.40)` and `lerp(thumb_0, thumb_tip, 0.73)`, unless given as knuckle points |
 | `grip_s` | palm centre `= mean(index_0, middle_0, ring_0, pinky_0, wrist)` + `palm_normal_s · 0.35·hand_width_s` |
 | `grip_tip_s` | `grip_s + grip_axis_s · 0.10` |
 
@@ -88,11 +93,37 @@ Hand frame for side s:
 - `hand_axis = normalize(middle_0 − wrist)`
 - `lateral = normalize(index_0 − pinky_0)`
 - `palm_normal = normalize(cross(hand_axis, lateral))` for L and `normalize(cross(lateral, hand_axis))`
-  for R. The palm normal points **out of the palm**. The fixture tests check its sign: for a relaxed
+  for R. The palm normal points **out of the palm**. The kit tests check that the two palms mirror each other: for a relaxed
   A-pose hand hanging at the side, the L palm normal has a negative x component (it faces the thigh).
 - `hand_width = |index_0 − pinky_0|`
 - `grip_axis` is the direction a gripped cylinder runs through the fist:
   `normalize(lateral − hand_axis·dot(lateral, hand_axis))`
+
+**How the engine suggests markers** (`engine/mpm/rig/markers.py` `suggest_all`, `fingers.py`). These
+rules were set on real purchased character kits; each one answers a failure seen there.
+- **Two passes.** The arm alone cannot say where the wrist is on gloved or armoured characters (the
+  narrowest place near the hand is often the palm). Pass 1 finds the body and, from a provisional
+  wrist, the fingers. The fingers then place the wrist: one palm length (1.1 × the longest of the
+  index, middle and ring fingers) behind the middle knuckle. Going from the fingers toward the elbow
+  the hand is flat and the wrist is the first round cross-section (flatness ≤ 1.5) after the palm
+  (≥ 2.0); if that landmark lies within 1.5 % of the height in front of the estimate or 2.5 % behind
+  it, it is the wrist, else the estimate is. Mirror-image hands get mirror-image wrists. Pass 2
+  measures arm and fingers again from that wrist; a hand that pass 2 cannot read keeps its pass 1
+  fingers.
+- **Arm tracing** walks from the fingertip toward the shoulder and stops where the cross-section
+  becomes much wider (the torso). Widths inside the hand (the last 12 % of the height) are ignored:
+  fingertips widening into the palm are not the torso.
+- **Fingers are followed from the tips inward.** Fingertips are always separate; palms are not
+  (fingers separate one after another, detached armour sits beside the wrist). Each piece is tracked
+  from where it first appears back toward the wrist until it joins something. Pieces of one finger
+  that touch a neighbour part of the way are stitched together. A finger whose track is shorter than
+  0.8 × (4.0 index, 4.2 middle, 4.0 ring, 3.2 pinky) × its own thickness has its knuckle set back
+  along the finger to that length (confidence 0.7, with a warning).
+- **Fallbacks, in order.** A hand that cannot be read takes the other hand's layout, mirrored
+  (confidence ≤ 0.6, warning "mirrored from the … hand - check them"). If neither hand can be read, a
+  template laid along the measured hand direction (confidence 0.2).
+- Confidence shown in the UI: ≥ 0.8 sure, 0.5–0.8 check, < 0.5 unsure. A guessed body joint is 0.2
+  and always comes with a warning naming it.
 
 ---------------------------------------------------------------------------------------------------
 ## 5. Pose math (shared by the renderer and the engine)
@@ -184,6 +215,21 @@ hands and feet, and every bone direction (all < 0.05°).
 
 ---------------------------------------------------------------------------------------------------
 ## 7. Skinning parity and GLB export (engine)
+
+**Auto-rig weights** (`engine/mpm/rig/skin.py`), beyond nearest-bone weighting with occlusion:
+- **The hand only moves what is attached to the arm.** A hand hanging beside the thigh is centimetres
+  from thigh armour, a hip pouch or a skirt. On the connected piece that contains the fingertips, a
+  vertex may follow the hand or forearm only if its path along the surface to the fingertips is at
+  most 1.8 × the straight distance + 10 % of the height. A separate piece may follow the hand only if
+  it wraps the palm or a finger (no angular gap over 200° around the bone), as a glove or ring does.
+- **Armour does not bend.** A connected piece smaller than 30 % of the height follows the one bone
+  that carries the majority of its weight (or a clear lead: ≥ 40 % and ≥ 1.4 × the next bone). An
+  accessory object (any object but the body) smaller than 45 % of the height is tried as a whole
+  first (≥ 60 %), so a helmet's hanging parts turn with the head. Hand and finger weights of one side
+  count together; a piece with more than 25 % finger weight is a hand or glove and stays soft.
+- Finger weights only redistribute weight a vertex already has on its hand bone.
+- `radius_m` of a finger bone that no vertex follows is the median of that hand's other finger bones;
+  no finger radius exceeds 22 % of the hand width.
 
 Before exporting `rig.glb` and before baking, the rig job enforces all of the following on every mesh:
 1. Exactly **one Armature modifier**, first in the stack. `use_deform_preserve_volume=False`,
@@ -423,14 +469,18 @@ the UI (clips are hip-centred and the bake drops the lowest point to z = 0).
 ```json
 { "schema": "mpm.bake/1",
   "scale": { "mode": "height_mm", "height_mm": 40 } | { "mode": "heroic", "size_mm": 32 },
-  "detail": 2.0, "flatten_mm": 0.5, "base_mm": 0, "min_wall_mm": 0.6,
+  "detail": 2.0, "flatten_mm": 0.5, "base_mm": 0, "min_wall_mm": 0.6, "thicken_thin": true,
   "weapons_separate": false, "max_tris": 2000000 }
 ```
 - `heroic`: the eye height of the standing rest pose (from the `head` joint z + 0.4·(head_top − head))
   equals `size_mm`.
 - `height_mm` is the standing rest height, so poses keep their scale (a crouch prints shorter).
-- **Gates, in order**: follow-check (≥ 5 % of vertices moved when any D ≠ I; worst drift of a weighted
-  vertex from its bone < 1 % of height; posed bbox < 2 × rest bbox), then budgets, then remesh.
+- `thicken_thin` (default true): walls thinner than `min_wall_mm` (fingers, blades at small scales) are
+  pushed apart until they reach it; each side moves out by half the shortfall, feathered into its
+  surroundings. The report gives `thin_area_pct_before`, `thin_area_pct` (after) and `thickened_verts`.
+- **Gates, in order**: follow-check (≥ 5 % of vertices moved when any D ≠ I; worst drift from its bone
+  of a vertex weighted > 0.99 to that bone < 1 % of height; posed bbox < 2 × rest bbox), then
+  budgets, then remesh.
 - **Budgets**:
   - subdivided faces ≤ 8,000,000 in total; lower the subdivision level per mesh until under
   - meshes without a normal map use level 0
@@ -448,6 +498,7 @@ the UI (clips are hip-centred and the bake drops the lowest point to z = 0).
 A project is a folder `<Name>/` containing `<Name>.mposer` (JSON) and:
 ```
 source/    copied imported model + textures
+props/     objects the import left out of the character (a weapon beside the model), one .glb each
 rig/       scene.blend, import.json, preview.glb, rig.blend, rig.glb, rig.json, markers.json
 weapons/   copied weapon files + converted .glb
 exports/   baked STL + preview .glb + report.json
@@ -457,7 +508,8 @@ cache/     anything regenerable
 `<Name>.mposer`:
 ```json
 { "schemaVersion": 1, "app": "Mini Pose Master", "appVersion": "0.1.0",
-  "source": { "file": "source/hero.fbx", "orientation": { "up": "Z", "forward": "-Y", "unit_scale": 1.0 } },
+  "source": { "file": "source/hero.fbx", "orientation": { "up": "Z", "forward": "-Y", "unit_scale": 1.0 },
+              "objects": { "<object name>": true|false } },
   "rig": { "kind": "auto"|"imported", "hash": "..." } | null,
   "pose": <section 13> | null,
   "hands": { "L": <hand pose> , "R": <hand pose>, "locked": {"R": ["index"]} },
@@ -466,6 +518,8 @@ cache/     anything regenerable
   "rigDraft": { "markers": { "<marker>": {"p": [x,y,z], "confidence": 0.9, "source": "auto"|"user"} } } | null }
 ```
 - All paths are relative to the project folder.
+- `source.objects` (optional) is the user's choice of parts in the Import step: true = part of the
+  character. It is sent with every import of that source.
 - `rigDraft.markers` is the auto-rig marker draft; `project.save` also writes it to `rig/markers.json`
   (the file the `rig` job reads when no markers are passed).
 - Licensed clip data is never embedded; projects store only `provenance`.
@@ -504,7 +558,7 @@ Job types (args → result):
 
 | type | args | result |
 |---|---|---|
-| `import` | `file`, `orientation` (optional; else auto) | `objects[]` (with `materials`), `materials[]`, `normal_maps[]`, `has_armature`, `armature_bones[]`, `tri_count`, `height_m`, `suggested_orientation`, `orientation_used`, `proxy` (bool), `warnings[]`, `preview_glb`, `source_file`; writes `rig/scene.blend`, `rig/preview.glb` and the same result to `rig/import.json` |
+| `import` | `file`, `orientation` (optional; else auto), `objects` (optional `{name: bool}`, the user's choice of parts) | `objects[]` (the character's meshes, with `materials`), `all_objects[]` (`{name, verts, tris, included, prop}` for every mesh in the file), `props[]` (`{file: "props/<name>.glb", objects[], dims_m}`), `materials[]`, `normal_maps[]`, `has_armature`, `armature_bones[]`, `tri_count`, `height_m`, `suggested_orientation`, `orientation_used`, `proxy` (bool), `warnings[]`, `preview_glb`, `source_file`; writes `rig/scene.blend`, `rig/preview.glb`, `props/*.glb` and the same result to `rig/import.json` |
 | `suggest_markers` | – | `markers` (section 4) + `warnings[]` |
 | `suggest_mapping` | – (needs an armature in scene.blend) | `convention` (`mixamo` `ue` `biped` `rigify` `unknown`), `mapping` `{bone_name: canonical_bone or null}`, `unmapped_canonical[]`, `confidence` |
 | `rig` | `markers` or `mapping` (`{bone_name: canonical_name}`) | `rig_json`, `rig_glb`, `follow` stats; writes `rig/rig.blend` |
@@ -512,6 +566,13 @@ Job types (args → result):
 | `convert_weapon` | `file` (project-relative), `unit_scale` (optional), `out` (optional) | `weapon_glb` (`weapons/<stem>.glb`, static, metres, own origin and axes kept), `objects[]`, `tri_count`, `bbox_m`, `dims_m`, `principal_axis`, `normal_maps[]`, `unit_scale_used`, `suggested_unit_scale` (0.01 / 0.001 when the file is > 30 m / > 300 m long), `warnings[]` |
 | `dump_skinned` | `pose`, `sample` (list of `_ORIG_INDEX`) | `positions` (same order, posed, before subdivision, metres); `bones[]` `{index, head, tail, matrix}` with `matrix` = `pose_bone.matrix` as 4×4 rows (the §12 attach frame) |
 | `bake` | `name`, `pose` (§13), `weapons` (§12), `bake` (§14); `hands` is informational (finger deltas are in `pose`) | `stl`, `preview_glb` (metres, MP_Printable / MP_TooThin materials), `report` (make_printable fields + `summary`), `weapons[]` `{id, stl, report}` for separate weapons, `gates` `{follow, posed, faces, levels_lowered, voxel_coarsened_to}`, `detail`, `unit_mm`, `standing_mm`, `weights_transferred[]`; also writes `exports/report.json` |
+
+**Character and props** (`import`). Kits often ship props beside the character (a weapon lying on
+the floor). They must not take part in finding the facing or the joints. The character is the biggest
+object plus everything within 3 % of its size of it, grown until nothing more joins; meshes skinned to
+the kept armature always belong. Everything else is a prop: left out of `scene.blend`, and saved as
+`props/<name>.glb` (props that touch each other are one prop) so the Weapons step can offer it.
+`objects` overrides the rule per object; leaving out everything fails with `E_NO_MESH`.
 
 Error codes:
 `E_BLENDER_VERSION E_ARGS E_IMPORT_FAILED E_NO_MESH E_ORIENTATION E_MARKERS_INCOMPLETE E_WEIGHTS_EMPTY E_FOLLOW_CHECK E_BUDGET E_REMESH E_EXPORT E_IO E_CANCELLED E_INTERNAL`
@@ -671,20 +732,39 @@ sell prints made with these poses."*
 - Pack `mine` holds the user's own clips (`importClip`): license "Your own", exportable, not NC.
 
 ---------------------------------------------------------------------------------------------------
-## 21. Tests and fixtures
+## 21. Tests
 
-- Fixtures are **original** characters, generated by `fixtures/generate.py` (Blender). They come with
-  ground-truth JSON (exact joints, palm normals, fingertips, the normal map's source height field).
-- Tolerances:
+**Model behaviour is tested on real purchased character kits, never on a figure made for the app.** A
+made-up figure is too clean: it hid every problem real kits have (fingers that touch, gauntlets, props
+on the floor, armour beside the wrist, hands resting against thighs). The kits are not in this
+repository and never will be.
 
-  | Check | Tolerance |
+- `tests/local/kits.json` (git-ignored; or the file named by `MPM_KITS`) names the kits on this
+  machine, with per-kit flags (`hard`: unusual anatomy) and the per-part choice a user would make.
+  `tests/engine/kits.py` builds each kit once with the real jobs (import → suggest_markers → rig) and
+  caches the project under `tests/local/cache`, keyed by the model file and the engine source.
+  Without the config every kit test skips (as on CI).
+- There is no made-up ground truth. Kit tests assert what must hold on any real humanoid, and
+  compare against results a person reviewed and accepted (`tests/local/expected`, written by
+  `tests/engine/accept_kit.py`):
+
+  | Check | Requirement on ordinary kits |
   |---|---|
-  | auto-markers | within 2 % of standing height |
-  | fingertips | within 15 % of hand length |
-  | renderer vs engine heads | 1e-5 m |
-  | skinned vertices | 1e-4 m |
-  | retarget parity | 0.01° |
-  | detail height correlation vs ground truth | > 0.9 |
+  | body joints | all measured (none guessed), confidence ≥ 0.8, inside the mesh, anatomical order and limb ratios, left/right symmetric within 3 % of height |
+  | reviewed markers | within 1.5 % of height of the accepted positions |
+  | fingers | all ten found; tips within 5 mm of the surface; order and thumb side correct |
+  | mirrored-hand fallback | fingertips within 25 mm of the hand |
+  | skin parity | 1–4 influences summing to 1 (§7) |
+  | posed skin | in a strong pose the 99th-percentile edge stretch < 2×, under 0.3 % of edges over 3× |
+  | bake | sealed STL (0 open, 0 non-manifold edges), one piece, standing scale |
+  | renderer vs engine heads / skinned vertices | 1e-5 m / 1e-4 m (golden data made from a real kit) |
+- Pure maths (pose composition, IK, mirror, hand pose, clip format, budgets, mesh repair) is tested on
+  data built in code: a bare skeleton (`tests/ts/helpers/skeletonRig.ts`), plain shapes, a synthetic
+  BVH, a synthetic height field. `fixtures/generate.py` only makes two original weapons (sword,
+  rifle).
 - Engine tests run with
-  `blender -b --factory-startup --python-exit-code 1 -P tests/engine/run.py -- <test filter>`.
+  `blender -b --factory-startup --python-exit-code 1 -P tests/engine/run.py -- <test filter>`;
+  `tests/engine/kit_report.py` prints how every kit fares.
+- The app end to end on a kit: `node tests/e2e/real.mjs --kit <name> --out <dir> ...` (hidden window
+  by default; `MPM_E2E_SHOW=1` shows it). Nothing from a kit run is written inside the repository.
 - TS tests: `npm test` (vitest).

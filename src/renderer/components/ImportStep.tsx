@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Import step: choose a model, see the import summary, fix the orientation.
+// Import step: choose a model, see the import summary, choose its parts, fix the orientation.
 import { useEffect, useState } from 'react'
 import type { ImportJobResult } from '../../shared/jobResults'
 import type { Axis, Orientation } from '../../shared/project'
 import { AXES, forwardChoices, pickOrientation, sameOrientation, unitScaleChoices, withUp } from '../lib/orientation'
+import { partsOf } from '../lib/parts'
 import { chooseAndImportModel, fire, rerunImport } from '../store/actions'
 import { useStore } from '../store'
 import { ProgressBar, Section, Warnings } from './common'
+import { PartsPanel } from './PartsPanel'
 
 function ImportSummary({ info }: { info: ImportJobResult }) {
   return (
@@ -116,6 +118,7 @@ export function ImportStep() {
   const progress = useStore((s) => s.progress)
   const previewError = useStore((s) => s.previewError)
   const busy = active !== null
+  const parts = partsOf(info)
 
   return (
     <div className="step-panel">
@@ -133,6 +136,7 @@ export function ImportStep() {
       )}
       {active?.type === 'import' && <ProgressBar fraction={progress?.fraction ?? null} label={progress?.message || active.label} />}
       {info && <ImportSummary info={info} />}
+      {parts.length > 0 && <PartsPanel parts={parts} />}
       {!info && source && !busy && (
         <div className="hint">
           <p>The import summary is shown after an import.</p>

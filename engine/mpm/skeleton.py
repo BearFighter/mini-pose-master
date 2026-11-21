@@ -118,13 +118,15 @@ def derive_joints(markers):
         b = _lerp(ank, toe, 0.68)
         b[2] = 0.35 * ank[2] + 0.65 * toe[2]
         J["ball_" + s] = b
+        # The two middle joints of a finger lie on the straight line from knuckle to tip unless the
+        # markers give them (optional knuckle points, for curved fingers and claws).
         for f in ("index", "middle", "ring", "pinky"):
             a, t = J["%s_0_%s" % (f, s)], J["%s_tip_%s" % (f, s)]
-            J["%s_1_%s" % (f, s)] = _lerp(a, t, 0.45)
-            J["%s_2_%s" % (f, s)] = _lerp(a, t, 0.75)
+            J.setdefault("%s_1_%s" % (f, s), _lerp(a, t, 0.45))
+            J.setdefault("%s_2_%s" % (f, s), _lerp(a, t, 0.75))
         a, t = J["thumb_0_" + s], J["thumb_tip_" + s]
-        J["thumb_1_" + s] = _lerp(a, t, 0.40)
-        J["thumb_2_" + s] = _lerp(a, t, 0.73)
+        J.setdefault("thumb_1_" + s, _lerp(a, t, 0.40))
+        J.setdefault("thumb_2_" + s, _lerp(a, t, 0.73))
         fr = hand_frame(J, s)
         centre = np.mean([J["index_0_" + s], J["middle_0_" + s], J["ring_0_" + s], J["pinky_0_" + s],
                           J["wrist_" + s]], axis=0)

@@ -20,3 +20,6 @@ prototype/
 tests/golden/
 # end-to-end run output (screenshots, logs)
 tests/e2e/out/
+
+# local real-kit test config, caches and reviewed results (never committed)
+tests/local/

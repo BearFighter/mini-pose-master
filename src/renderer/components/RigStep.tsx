@@ -2,7 +2,7 @@
 // Rig step: auto-rig (find joints, review and drag markers) or map the model's own skeleton,
 // then build the rig and check it at rest and in a test pose.
 import { useMemo } from 'react'
-import { confidenceLevel } from '../lib/markers'
+import { addKnucklePoints, confidenceLevel, hasKnucklePoints, removeKnucklePoints, warningHand } from '../lib/markers'
 import {
   buildRig,
   fire,
@@ -14,7 +14,7 @@ import {
 } from '../store/actions'
 import { useStore } from '../store'
 import { MAPPABLE_BONES } from '../store/rig'
-import { percent, ProgressBar, Section, Warnings } from './common'
+import { percent, ProgressBar, Section } from './common'
 import { MarkerList } from './MarkerList'
 
 function JobProgress({ types }: { types: string[] }) {
@@ -22,6 +22,28 @@ function JobProgress({ types }: { types: string[] }) {
   const progress = useStore((s) => s.progress)
   if (!active || !types.includes(active.type)) return null
   return <ProgressBar fraction={progress?.fraction ?? null} label={progress?.message || active.label} />
+}
+
+/** The warnings of "Find joints"; one about a hand gets a "Zoom to hand" button. */
+function MarkerWarnings({ items }: { items: string[] }) {
+  if (items.length === 0) return null
+  return (
+    <ul className="warnings">
+      {items.map((w, i) => {
+        const side = warningHand(w)
+        return (
+          <li key={i}>
+            {w}
+            {side && (
+              <button className="mini" onClick={() => zoomToHand(side)} title={`Show the ${side === 'L' ? 'left' : 'right'} hand's markers`}>
+                Zoom to hand
+              </button>
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
 }
 
 function AutoRigPanel() {
@@ -32,6 +54,7 @@ function AutoRigPanel() {
   const busy = useStore((s) => s.active !== null)
   const setMirror = useStore((s) => s.setMirrorEdits)
   const setXray = useStore((s) => s.setXray)
+  const setMarkers = useStore((s) => s.setMarkers)
   const requestFocus = useStore((s) => s.requestFocus)
   const height = useStore((s) => s.importInfo?.height_m ?? 1.8)
   const editing = useStore((s) => s.view === 'markers' || s.rigJson === null)
@@ -58,7 +81,7 @@ function AutoRigPanel() {
           )}
         </div>
         <JobProgress types={['suggest_markers']} />
-        <Warnings items={warnings} />
+        <MarkerWarnings items={warnings} />
       </Section>
 
       {markers && editing && (
@@ -79,6 +102,24 @@ function AutoRigPanel() {
             <button onClick={() => zoomToHand('L')}>Zoom to hand L</button>
             <button onClick={() => zoomToHand('R')}>Zoom to hand R</button>
             <button onClick={() => requestFocus([0, height / 2, 0], height * 0.55, false)}>Whole body</button>
+          </div>
+          <div className="button-row" title="Two extra points per finger for curved fingers and claws. Without them each finger is a straight line from knuckle to tip.">
+            {(['L', 'R'] as const).map((side) => {
+              const has = markers ? hasKnucklePoints(markers, side) : false
+              return (
+                <button
+                  key={side}
+                  disabled={!markers}
+                  onClick={() => {
+                    if (!markers) return
+                    setMarkers(has ? removeKnucklePoints(markers, side) : addKnucklePoints(markers, side))
+                    if (!has) zoomToHand(side)
+                  }}
+                >
+                  {has ? 'Remove' : 'Add'} knuckle points {side}
+                </button>
+              )
+            })}
           </div>
           <MarkerList />
         </Section>

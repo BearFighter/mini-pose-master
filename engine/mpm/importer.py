@@ -86,6 +86,98 @@ def select_objects(objs):
 
 
 # --------------------------------------------------------------------------
+# character vs props
+# --------------------------------------------------------------------------
+
+PROP_GAP = 0.03       # an object farther than this fraction of the character's size from it is a prop
+PROP_SAMPLES = 1500   # vertices tested per object
+
+
+def _bvh_of(co, me):
+    from mathutils import Vector
+    from mathutils.bvhtree import BVHTree
+    return BVHTree.FromPolygons([Vector(v) for v in co], [list(p.vertices) for p in me.polygons])
+
+
+def split_props(meshes, armature=None, overrides=None):
+    """Which meshes are the character and which are props shipped beside it (a gun on the floor, a stand).
+
+    The character is the biggest object plus everything touching it (within PROP_GAP of its size), grown
+    until nothing more joins; meshes skinned to the kept armature always belong to it. `overrides`
+    {object name: bool} is the user's choice and wins. Returns (keep, props, auto) where `auto` is
+    {name: True if the automatic rule calls it a prop}. Nothing is deleted here."""
+    from mathutils import Vector
+    meshes = [m for m in meshes if m.type == 'MESH' and len(m.data.vertices)]
+    overrides = overrides or {}
+    if len(meshes) <= 1:
+        return list(meshes), [], {m.name: False for m in meshes}
+    co = {m.name: _world_verts(m) for m in meshes}
+    vol = {n: float(np.prod(np.maximum(c.max(0) - c.min(0), 1e-9))) for n, c in co.items()}
+    seed = max(meshes, key=lambda m: vol[m.name])
+    size = float((co[seed.name].max(0) - co[seed.name].min(0)).max())
+    gap = PROP_GAP * size
+
+    def skinned(m):
+        return armature is not None and any(md.type == 'ARMATURE' and md.object == armature for md in m.modifiers)
+
+    by_name = {m.name: m for m in meshes}
+    group = {seed.name} | {m.name for m in meshes if skinned(m)}
+    trees = {n: _bvh_of(co[n], by_name[n].data) for n in group}
+    rng = np.random.default_rng(0)
+    sample = {}
+    for m in meshes:
+        c = co[m.name]
+        sample[m.name] = c if len(c) <= PROP_SAMPLES else c[rng.choice(len(c), PROP_SAMPLES, replace=False)]
+    grew = True
+    while grew:
+        grew = False
+        for m in meshes:
+            if m.name in group:
+                continue
+            near = any(t.find_nearest(Vector(v), gap)[0] is not None
+                       for v in sample[m.name] for t in trees.values())
+            if not near:  # also the other way round: a big shell around a small piece of the character
+                mt = _bvh_of(co[m.name], m.data)
+                near = any(mt.find_nearest(Vector(v), gap)[0] is not None for n in group for v in sample[n][:300])
+            if near:
+                group.add(m.name)
+                trees[m.name] = _bvh_of(co[m.name], m.data)
+                grew = True
+    auto = {m.name: m.name not in group for m in meshes}
+    keep = [m for m in meshes if overrides.get(m.name, not auto[m.name])]
+    props = [m for m in meshes if m not in keep]
+    if not keep:
+        raise MpmError("E_NO_MESH", "every object was left out; keep at least the body")
+    return keep, props, auto
+
+
+def prop_groups(props):
+    """Props that touch each other form one prop (a gun made of several objects). Returns lists of objects."""
+    from mathutils import Vector
+    props = list(props)
+    if not props:
+        return []
+    co = {m.name: _world_verts(m) for m in props}
+    size = max(float((c.max(0) - c.min(0)).max()) for c in co.values())
+    gap = 0.05 * size
+    trees = {m.name: _bvh_of(co[m.name], m.data) for m in props}
+    left, groups = list(props), []
+    while left:
+        grp = [left.pop(0)]
+        grew = True
+        while grew:
+            grew = False
+            for m in list(left):
+                if any(trees[g.name].find_nearest(Vector(v), gap)[0] is not None
+                       for g in grp for v in co[m.name][:PROP_SAMPLES]):
+                    grp.append(m)
+                    left.remove(m)
+                    grew = True
+        groups.append(grp)
+    return groups
+
+
+# --------------------------------------------------------------------------
 # geometry helpers
 # --------------------------------------------------------------------------
 
@@ -297,6 +389,7 @@ def inspect(meshes, armature, suggested_orientation=None, proxy=False, warnings=
     """
     meshes = [m for m in meshes if m.type == 'MESH']
     objects, mats, nmaps = [], [], []
+    missing_maps = []
     tri_total = 0
     for m in meshes:
         me = m.data
@@ -307,7 +400,7 @@ def inspect(meshes, armature, suggested_orientation=None, proxy=False, warnings=
         for n in names:
             if n not in mats:
                 mats.append(n)
-        for nm in detail.find_normal_maps(m):
+        for nm in detail.find_normal_maps(m, missing_maps):
             img = nm["image"]
             nmaps.append({"object": m.name, "material": nm["material"], "image": img.name,
                           "size": [int(img.size[0]), int(img.size[1])]})
@@ -327,5 +420,7 @@ def inspect(meshes, armature, suggested_orientation=None, proxy=False, warnings=
         "height_m": float(pts[:, 2].max() - pts[:, 2].min()),
         "suggested_orientation": suggested_orientation or suggest_orientation(meshes),
         "proxy": bool(proxy),
-        "warnings": list(warnings or []),
+        "warnings": list(warnings or []) + (
+            ["normal map file(s) not found: %s. Put them beside the model and import again to bake their "
+             "surface detail." % ", ".join(missing_maps)] if missing_maps else []),
     }

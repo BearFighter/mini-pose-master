@@ -9,11 +9,11 @@ import { composePose } from '../../src/shared/composePose'
 import { canonicalIndex, posedBones, posedJoints } from '../../src/shared/fk'
 import type { HandPose } from '../../src/shared/handPose'
 import { inv, mul, q4, quatAngleDeg, v3, wxyz } from '../../src/shared/math'
-import type { RigJson } from '../../src/shared/rig'
 import type { WeaponEntry } from '../../src/shared/weaponPose'
 import { attachFrame, followHands, weaponMatrix } from '../../src/shared/weaponPose'
+import { autoRig } from './helpers/skeletonRig'
 
-const AUTO = JSON.parse(readFileSync(join(__dirname, 'fixtures', 'rig_auto_apose.json'), 'utf8')) as RigJson
+const AUTO = autoRig()
 const PRESETS = JSON.parse(readFileSync(join(__dirname, '..', '..', 'resources', 'hand_presets.json'), 'utf8'))
 const FIST = PRESETS.presets.find((p: HandPose) => p.name === 'fist') as HandPose
 const ci = canonicalIndex(AUTO)

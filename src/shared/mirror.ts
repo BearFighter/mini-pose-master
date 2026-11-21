@@ -35,13 +35,19 @@ export function mirrorPartners(rig: RigJson): number[] {
   })
 }
 
+/**
+ * Mirrors a pose. Only bones with a canonical name carry a pose of their own; every other bone (twist
+ * bones, end bones, props) follows its parent (contracts section 8), so after a mirror it follows its
+ * parent's mirrored pose rather than taking a mirrored copy of what it had on the other side.
+ */
 export function mirrorPose(rig: RigJson, deltas: Deltas, rootOffset: Vec3): { deltas: Deltas; rootOffset: Vec3 } {
   const res = resolveDeltas(rig, deltas)
   const partner = mirrorPartners(rig)
-  const out: Deltas = {}
-  rig.bones.forEach((_b, i) => {
+  const own: Deltas = {}
+  rig.bones.forEach((b, i) => {
+    if (!b.canonical) return
     const [w, x, y, z] = res[String(partner[i])]
-    out[String(i)] = w < 0 ? [-w, -x, y, z] : [w, x, -y, -z]
+    own[String(i)] = w < 0 ? [-w, -x, y, z] : [w, x, -y, -z]
   })
-  return { deltas: out, rootOffset: [-rootOffset[0], rootOffset[1], rootOffset[2]] }
+  return { deltas: resolveDeltas(rig, own), rootOffset: [-rootOffset[0], rootOffset[1], rootOffset[2]] }
 }

@@ -12,6 +12,7 @@ export const DEFAULT_BAKE: BakeSettings = {
   flatten_mm: 0.5,
   base_mm: 0,
   min_wall_mm: 0.6,
+  thicken_thin: true,
   weapons_separate: false,
   max_tris: 2_000_000
 }

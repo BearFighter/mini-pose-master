@@ -1,68 +1,26 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""WP4c acceptance: rig build, skinning, pose application, export, rig job.
-Markers are the fixture TRUTH editable joints, so this tests building, not marker finding."""
+"""Rig build, skinning, posing and export on real character kits (tests/engine/kits.py): the rig the real
+`rig` job writes for each kit, from the joints the engine itself found."""
 import json
 import math
 import os
 import random
-import shutil
-import subprocess
 import sys
-import tempfile
-import time
 
 import numpy as np
-
-import bpy
-from mathutils import Matrix, Quaternion, Vector
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(REPO, "engine"))
 sys.path.insert(0, os.path.join(REPO, "engine", "jobs"))
+import kits  # noqa: E402
 from mpm import pose as PO  # noqa: E402
 from mpm import skeleton as SK  # noqa: E402
-from mpm.rig import build, export  # noqa: E402
-from mpm.rig import skin as SKN  # noqa: E402
 from mpm.rig.export import parse_glb_json  # noqa: E402
-import rig as RIGJOB  # noqa: E402  (engine/jobs/rig.py)
-from test_markers import fx, load_normalised, load_truth  # noqa: E402
-
-BLENDER = bpy.app.binary_path
 
 
-def truth_markers(name):
-    meshes, joints = load_normalised(name)
-    editable = load_truth(name)["editable"]
-    return meshes, joints, {k: joints[k].tolist() for k in editable}
-
-
-def build_skinned(name):
-    meshes, joints, markers = truth_markers(name)
-    J = SK.derive_joints(markers)
-    hands = SK.hand_frames(J)
-    zs = [(o.matrix_world @ v.co).z for o in meshes for v in o.data.vertices]
-    H = float(max(zs) - min(zs))
-    arm = build.build_armature(J, hands)
-    rep = SKN.skin(meshes, arm, J, H)
-    return meshes, arm, J, hands, H, joints, rep
-
-
-def weights(o, names):
+def _weights(o, names):
     gi = {g.index: g.name for g in o.vertex_groups}
-    out = []
-    for v in o.data.vertices:
-        out.append({gi[e.group]: e.weight for e in v.groups if gi.get(e.group) in names})
-    return out
-
-
-# ---------------------------------------------------------------------------------------------------
-
-def test_derive_joints_matches_truth_apose():
-    _m, joints, markers = truth_markers("apose")
-    J = SK.derive_joints(markers)
-    assert len(J) == 68
-    worst = max(float(np.linalg.norm(J[k] - joints[k])) for k in joints)
-    assert worst < 1e-6, "derived joints differ from truth by %.2e m" % worst
+    return [{gi[e.group]: e.weight for e in v.groups if gi.get(e.group) in names} for v in o.data.vertices]
 
 
 def test_skeleton_matches_ts_counts():
@@ -72,42 +30,94 @@ def test_skeleton_matches_ts_counts():
     assert SK.mirror_name("thumb.01.L") == "thumb.01.R" and SK.mirror_name("hips") == "hips"
 
 
-def test_build_and_skin_apose():
-    t0 = time.time()
-    meshes, arm, J, hands, H, joints, rep = build_skinned("apose")
-    print("  build+skin %.1f s, blind vertices %d, hand vertices %d" % (time.time() - t0, rep["blind"], rep["hand_vertices"]))
-    bones = arm.data.bones
-    for b in SK.BONES:
-        bb = bones[b["name"]]
-        assert (Vector(J[b["head"]]) - bb.head_local).length < 1e-6, b["name"]
-        assert (Vector(J[b["tail"]]) - bb.tail_local).length < 1e-6, b["name"]
-        side = SK.side_of(b["name"])
-        if side and (SK.is_finger_bone(b["name"]) or b["name"].startswith("grip.")):
-            # contracts section 10 finger frame: z = normalize(n - d * dot(n, d))
-            z = bb.matrix_local.to_3x3().col[2].normalized()
-            d = (bb.tail_local - bb.head_local).normalized()
-            n = Vector(hands[side]["palm_normal"])
-            zf = (n - d * n.dot(d)).normalized()
-            assert z.dot(zf) > 0.99, (b["name"], z.dot(zf))
+def test_rig_files_of_every_kit():
+    for name in kits.need():
+        pr = kits.project(name, "rig")
+        res, rig = pr.result("rig"), pr.rig
+        assert rig["schema"] == "mpm.rig/1" and rig["kind"] == "auto" and len(rig["bones"]) == 53, name
+        assert all(isinstance(b["gltf_node"], int) for b in rig["bones"])
+        assert all((b["radius_m"] is not None) == SK.is_finger_bone(b["name"]) for b in rig["bones"])
+        for b in rig["bones"]:
+            if b["radius_m"] is not None:
+                assert 0.002 < b["radius_m"] < 0.03, "%s: %s radius %.1f mm" % (name, b["name"], b["radius_m"] * 1000)
+        assert 1.5 < rig["height_m"] < 2.3 and abs(rig["floor_z"]) < 1e-3, (name, rig["height_m"], rig["floor_z"])
+        assert rig["hands"]["L"] and rig["hands"]["R"]
+        gj = parse_glb_json(os.path.join(pr.dir, "rig", "rig.glb"))
+        assert len(gj["skins"][0]["joints"]) == 53
+        for f in ("rig.blend", "rig.json", "rig.glb", "markers.json", "import.json", "preview.glb"):
+            assert os.path.exists(os.path.join(pr.dir, "rig", f)), (name, f)
+        f = res["follow"]
+        assert f["moved_fraction"] >= PO.MOVED_MIN and f["worst_drift"] < PO.DRIFT_MAX and f["grow"] < PO.GROW_MAX
+        print("  %s: follow %s, unreached vertices %s, %.1f s" % (
+            name, {k: round(v, 4) for k, v in f.items()}, res.get("blind_vertices"), res["seconds"]))
+        assert res["seconds"] < 120
+
+
+def test_bones_follow_the_joints_and_the_roll_rule():
+    from mathutils import Vector
+    for name in kits.need()[:3]:
+        arm, _meshes, rig = kits.open_rig(name)
+        J = SK.derive_joints(kits.project(name, "markers").markers)
+        hands = SK.hand_frames(J)
+        bones = arm.data.bones
+        for b in SK.BONES:
+            bb = bones[b["name"]]
+            assert (Vector(J[b["head"]]) - bb.head_local).length < 1e-5, (name, b["name"])
+            assert (Vector(J[b["tail"]]) - bb.tail_local).length < 1e-5, (name, b["name"])
+            side = SK.side_of(b["name"])
+            if side and (SK.is_finger_bone(b["name"]) or b["name"].startswith("grip.")):
+                # contracts section 10 finger frame: z = normalize(n - d * dot(n, d))
+                z = bb.matrix_local.to_3x3().col[2].normalized()
+                d = (bb.tail_local - bb.head_local).normalized()
+                n = Vector(hands[side]["palm_normal"])
+                zf = (n - d * n.dot(d)).normalized()
+                assert z.dot(zf) > 0.99, (name, b["name"], z.dot(zf))
+        for k, v in rig["joints"].items():
+            assert np.linalg.norm(np.array(v) - np.array(J[k])) < 1e-5, (name, k)
+
+
+def test_skin_parity_on_every_kit():
+    """Contracts section 7: 1 to 4 influences summing to 1, one Armature modifier first, _ORIG_INDEX."""
     names = {b["name"] for b in SK.BONES if b["deform"]}
-    for o in meshes:
-        W = weights(o, names)
-        for i, w in enumerate(W):
-            assert 1 <= len(w) <= 4, (o.name, i, w)
-            assert abs(sum(w.values()) - 1.0) < 1e-5, (o.name, i, w)
-        tip = np.array(joints["index_tip_L"])
-        near = [i for i, v in enumerate(o.data.vertices) if np.linalg.norm(np.array(v.co) - tip) < 0.01]
-        assert near, "no vertices near index_tip_L"
-        on = sum(1 for i in near if W[i].get("index.03.L", 0.0) > 0.5)
-        assert on / len(near) > 0.8, (on, len(near))
-        mods = [m for m in o.modifiers if m.type == 'ARMATURE']
-        assert len(mods) == 1 and o.modifiers[0].type == 'ARMATURE'
-        assert not mods[0].use_deform_preserve_volume and not mods[0].use_bone_envelopes
-        assert o.data.attributes.get("_ORIG_INDEX") is not None
+    for name in kits.need():
+        arm, meshes, _rig = kits.open_rig(name)
+        assert meshes, name
+        for o in meshes:
+            for i, w in enumerate(_weights(o, names)):
+                assert 1 <= len(w) <= 4, (name, o.name, i, w)
+                assert abs(sum(w.values()) - 1.0) < 1e-5, (name, o.name, i, w)
+            mods = [m for m in o.modifiers if m.type == 'ARMATURE']
+            assert len(mods) == 1 and o.modifiers[0].type == 'ARMATURE', (name, o.name)
+            assert mods[0].object == arm and not mods[0].use_deform_preserve_volume and not mods[0].use_bone_envelopes
+            assert o.data.attributes.get("_ORIG_INDEX") is not None, (name, o.name)
+
+
+def test_fingertips_belong_to_their_finger():
+    names = {b["name"] for b in SK.BONES if b["deform"]}
+    for name in kits.need(hard=False):
+        _arm, meshes, rig = kits.open_rig(name)
+        J = rig["joints"]
+        for s in ("L", "R"):
+            for f in ("index", "pinky", "thumb"):
+                tip = np.array(J["%s_tip_%s" % (f, s)])
+                bone = "%s.03.%s" % (f, s)
+                near = on = 0
+                for o in meshes:
+                    W = _weights(o, names)
+                    for i, v in enumerate(o.data.vertices):
+                        if np.linalg.norm(np.array(v.co) - tip) < 0.008:
+                            near += 1
+                            on += W[i].get(bone, 0.0) > 0.5
+                assert near, "%s: no vertices near %s_tip_%s" % (name, f, s)
+                assert near - on <= max(1, 0.2 * near), "%s: only %d of %d vertices at the %s %s tip follow %s" % (
+                    name, on, near, s, f, bone)
 
 
 def test_pose_identity_and_head_rule():
-    meshes, arm, J, hands, H, joints, rep = build_skinned("apose")
+    import bpy
+    from mathutils import Quaternion, Vector
+    name = kits.need()[0]
+    arm, meshes, _rig = kits.open_rig(name)
     dg = bpy.context.evaluated_depsgraph_get()
     PO.apply_pose_state(arm, {})
     for o in meshes:
@@ -129,84 +139,70 @@ def test_pose_identity_and_head_rule():
         Db, h = posed[i]
         assert (pb.head - h).length < 1e-5, (b.name, (pb.head - h).length)
         if b.parent is not None:
-            p = bones.index(b.parent)
-            Dp, hp = posed[p]
-            exp = hp + Dp @ (b.head_local - b.parent.head_local)
-            assert (pb.head - exp).length < 1e-5, b.name
+            Dp, hp = posed[bones.index(b.parent)]
+            assert (pb.head - (hp + Dp @ (b.head_local - b.parent.head_local))).length < 1e-5, b.name
         R = pb.matrix.to_3x3().normalized()
         Rexp = (Db @ b.matrix_local.to_3x3()).normalized()
         assert max(abs(R[r][c] - Rexp[r][c]) for r in range(3) for c in range(3)) < 1e-5, b.name
 
 
-def _rig_in(name, project):
-    meshes, joints, markers = truth_markers(name)
-    return RIGJOB.build_auto_rig(project, markers)
+# A strong but natural pose: both arms out and bent, a deep knee bend, a twist, curled fingers.
+ACTION = {"upper_arm.L": 55.0, "forearm.L": -70.0, "upper_arm.R": -35.0, "forearm.R": -90.0, "thigh.L": -70.0,
+          "shin.L": 85.0, "thigh.R": 20.0, "shin.R": 30.0, "spine": 15.0, "chest": 10.0, "head": -15.0,
+          "index.01.R": 60.0, "index.02.R": 70.0, "middle.01.R": 60.0, "middle.02.R": 70.0, "thumb.02.L": 30.0}
 
 
-def test_export_and_hash_stable():
-    tmp = tempfile.mkdtemp(prefix="mpm_rig_")
-    try:
-        r1 = _rig_in("apose", os.path.join(tmp, "a"))
-        print("  rig job (in-process) %.1f s, follow %s" % (r1["seconds"], r1["follow"]))
-        assert r1["seconds"] < 60
-        rig = json.load(open(os.path.join(tmp, "a", "rig", "rig.json"), encoding="utf-8"))
-        assert rig["schema"] == "mpm.rig/1" and rig["kind"] == "auto" and len(rig["bones"]) == 53
-        assert all(isinstance(b["gltf_node"], int) for b in rig["bones"])
-        assert all((b["radius_m"] is not None) == SK.is_finger_bone(b["name"]) for b in rig["bones"])
-        gj = parse_glb_json(os.path.join(tmp, "a", "rig", "rig.glb"))
-        assert len(gj["skins"][0]["joints"]) == 53
-        assert os.path.exists(os.path.join(tmp, "a", "rig", "rig.blend"))
-        r2 = _rig_in("apose", os.path.join(tmp, "b"))
-        assert r1["hash"] == r2["hash"], "rig hash not stable across runs"
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+def test_posed_skin_does_not_tear():
+    """Skinning quality on real meshes: in a strong pose almost no edge may stretch far. Bad weights
+    (a vertex following the wrong limb) show up as edges several times their rest length."""
+    import bpy
+    for name in kits.need():
+        arm, meshes, rig = kits.open_rig(name)
+        PO.apply_pose_state(arm, kits.local_x_deltas(rig, ACTION))
+        dg = bpy.context.evaluated_depsgraph_get()
+        ratios = []
+        for o in meshes:
+            ev = o.evaluated_get(dg)
+            me = ev.to_mesh()
+            r = np.array([v.co[:] for v in o.data.vertices])
+            p = np.array([v.co[:] for v in me.vertices])
+            ed = np.array([e.vertices[:] for e in o.data.edges], np.int64).reshape(-1, 2)
+            ev.to_mesh_clear()
+            l0 = np.linalg.norm(r[ed[:, 0]] - r[ed[:, 1]], axis=1)
+            l1 = np.linalg.norm(p[ed[:, 0]] - p[ed[:, 1]], axis=1)
+            ok = l0 > 1e-4
+            ratios.append(l1[ok] / l0[ok])
+        ratios = np.concatenate(ratios)
+        torn = float((ratios > 3.0).mean())
+        print("  %s: edge stretch median %.2f, 99th percentile %.2f, max %.1f, over 3x: %.3f %%" % (
+            name, np.median(ratios), np.percentile(ratios, 99), ratios.max(), torn * 100))
+        if name in kits.names(hard=True) or kits.kit(name).get("cloth"):
+            # Known limit: draped cloth that is part of the body (coat tails, a tabard) and long claws
+            # stretch in a deep lunge. It must stay a small share.
+            assert torn < 0.04, "%s: %.2f %% of edges stretch more than 3x" % (name, torn * 100)
+        else:
+            assert np.percentile(ratios, 99) < 2.0, (name, float(np.percentile(ratios, 99)))
+            assert torn < 0.003, "%s: %.2f %% of edges stretch more than 3x" % (name, torn * 100)
+        chk = PO.follow_check(arm, meshes, rig["height_m"])
+        PO.gate(chk, posed_any=True)
 
 
-def test_other_fixtures_build():
-    tmp = tempfile.mkdtemp(prefix="mpm_rig_")
-    try:
-        for name in ("tpose", "curled", "mitten"):
-            r = _rig_in(name, os.path.join(tmp, name))
-            print("  %s: %.1f s, follow %s" % (name, r["seconds"], r["follow"]))
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+def test_hash_stable_across_builds():
+    name = kits.need()[0]
+    first = kits.project(name, "rig").rig["hash"]
+    again = kits.scratch_copy(name, "rig")
+    res = kits.ok(*kits.run_job(again.dir, "rig", {"markers": again.markers}))
+    assert res["hash"] == first == again.rig["hash"], "rig hash not stable across runs"
 
 
-def _run_job(project, jtype, args):
-    jp = os.path.join(project, "cache", "%s.job.json" % jtype)
-    os.makedirs(os.path.dirname(jp), exist_ok=True)
-    with open(jp, "w", encoding="utf-8") as fh:
-        json.dump({"schema": "mpm.job/1", "id": jtype, "type": jtype, "project_dir": project, "args": args}, fh)
-    p = subprocess.run([BLENDER, "-b", "--factory-startup", "--python-exit-code", "1", "-P",
-                        os.path.join(REPO, "engine", "jobs", jtype + ".py"), "--", jp],
-                       capture_output=True, text=True, timeout=600)
-    res = [l for l in p.stdout.splitlines() if l.startswith("@@result")]
-    errs = [l for l in p.stdout.splitlines() if l.startswith("@@error")]
-    return p.returncode, res, errs, p
-
-
-def test_rig_job_end_to_end():
-    tmp = tempfile.mkdtemp(prefix="mpm_rigjob_")
-    try:
-        os.makedirs(os.path.join(tmp, "source"))
-        shutil.copy(fx("apose"), os.path.join(tmp, "source", "apose.fbx"))
-        for f in os.listdir(os.path.dirname(fx("apose"))):
-            if f.endswith(".png"):
-                shutil.copy(os.path.join(os.path.dirname(fx("apose")), f), os.path.join(tmp, "source", f))
-        code, res, errs, p = _run_job(tmp, "import", {"file": "source/apose.fbx"})
-        assert code == 0 and len(res) == 1 and not errs, p.stdout[-2000:] + p.stderr[-2000:]
-        assert json.loads(res[0][len("@@result"):])["preview_glb"] == "rig/preview.glb"
-        assert os.path.getsize(os.path.join(tmp, "rig", "preview.glb")) > 10000
-        saved = json.load(open(os.path.join(tmp, "rig", "import.json"), encoding="utf-8"))
-        assert saved["has_armature"] is False and saved["source_file"] == "source/apose.fbx", saved
-        _m, _j, markers = truth_markers("apose")
-        os.makedirs(os.path.join(tmp, "rig"), exist_ok=True)
-        with open(os.path.join(tmp, "rig", "markers.json"), "w", encoding="utf-8") as fh:
-            json.dump({"schema": "mpm.markers/1",
-                       "markers": {k: {"p": v, "confidence": 1.0, "source": "user"} for k, v in markers.items()}}, fh)
-        code, res, errs, p = _run_job(tmp, "rig", {})
-        assert code == 0 and len(res) == 1 and not errs, p.stdout[-3000:] + p.stderr[-2000:]
-        for f in ("rig.glb", "rig.json", "rig.blend"):
-            assert os.path.exists(os.path.join(tmp, "rig", f)), f
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+def test_rig_job_reads_markers_file_and_reports_missing_markers():
+    name = kits.need()[0]
+    pr = kits.scratch_copy(name, "rig")
+    res = kits.ok(*kits.run_job(pr.dir, "rig", {}))  # no args: rig/markers.json
+    assert res["hash"] == kits.project(name, "rig").rig["hash"]
+    m = dict(pr.markers)
+    del m["knee_L"]
+    code, _res, err, _p = kits.run_job(pr.dir, "rig", {"markers": m})
+    assert code != 0 and err and err["code"] == "E_MARKERS_INCOMPLETE", err
+    with open(os.path.join(pr.dir, "rig", "rig.json"), encoding="utf-8") as fh:
+        assert json.load(fh)["hash"] == res["hash"], "a failed rig job must leave the old rig in place"

@@ -42,11 +42,20 @@ def image_rgb(img):
     return px[..., :3].copy()
 
 
-def find_normal_maps(obj):
+def _image_ok(img):
+    """False for an image whose file was not found (a kit that references a texture it does not ship)."""
+    try:
+        return img is not None and img.size[0] > 0 and img.size[1] > 0
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def find_normal_maps(obj, missing=None):
     """Tangent-space normal maps of an object's materials.
 
     One entry per NORMAL_MAP node whose Color input is linked from an image texture node:
     {"material": name, "slot": index, "image": bpy Image, "space": node.space}.
+    Images whose file is missing are left out; pass a list as `missing` to collect their file names.
     """
     out = []
     for slot_index, slot in enumerate(obj.material_slots):
@@ -62,6 +71,12 @@ def find_normal_maps(obj):
             for link in col.links:
                 src = link.from_node
                 if src.bl_idname == 'ShaderNodeTexImage' and src.image is not None:
+                    if not _image_ok(src.image):
+                        if missing is not None:
+                            name = (src.image.filepath or src.image.name).replace("\\", "/").split("/")[-1]
+                            if name not in missing:
+                                missing.append(name)
+                        continue
                     out.append({"material": mat.name, "slot": slot_index, "image": src.image,
                                 "space": node.space})
     return out

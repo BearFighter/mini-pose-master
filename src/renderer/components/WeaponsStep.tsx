@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Weapons step: add a weapon (converted to weapons/<name>.glb), units, attach hand, gizmo move/rotate,
+// Weapons step: add a weapon (a file, or a prop that came with the model; converted to
+// weapons/<name>.glb), units, attach hand, gizmo move/rotate,
 // scale with the print length, grip point, two-handed support grip, print separately, remove.
 import { useState } from 'react'
 import type { WeaponEntry } from '../../shared/project'
@@ -21,6 +22,7 @@ import {
   UNIT_CHOICES
 } from '../store/weaponActions'
 import { Section, Warnings } from './common'
+import { PropList } from './PropList'
 
 function ScaleField({ weapon }: { weapon: WeaponEntry }) {
   const [text, setText] = useState<string | null>(null)
@@ -60,6 +62,7 @@ function WeaponCard({ weapon }: { weapon: WeaponEntry }) {
   const short = pose?.supportShort[weapon.id]
   const name = weapon.file.split('/').pop() ?? weapon.file
   const length = info && rig ? lengthMm(info.dims_m, weapon.offset.s, unitMm(rig, bake)) : null
+  const units = weapon.unit_scale ?? info?.unit_scale_used ?? 1
   const toolButton = (t: WeaponTool, label: string, title: string) => (
     <button
       className={selected && tool === t ? 'on' : ''}
@@ -105,22 +108,16 @@ function WeaponCard({ weapon }: { weapon: WeaponEntry }) {
           </span>
         )}
       </div>
-      {info && (
-        <label className="field inline">
+      {weapon.source && (
+        <label className="field inline" title="Convert the weapon again with other units">
           <span>Units</span>
-          <select
-            value={String(info.unit_scale_used)}
-            disabled={busy}
-            onChange={(e) => fire(setWeaponUnits(weapon.id, Number(e.target.value)))}
-          >
+          <select value={String(units)} disabled={busy} onChange={(e) => fire(setWeaponUnits(weapon.id, Number(e.target.value)))}>
             {UNIT_CHOICES.map((u) => (
               <option key={u.value} value={String(u.value)}>
                 {u.label}
               </option>
             ))}
-            {!UNIT_CHOICES.some((u) => Math.abs(u.value - info.unit_scale_used) < 1e-12) && (
-              <option value={String(info.unit_scale_used)}>x{info.unit_scale_used}</option>
-            )}
+            {!UNIT_CHOICES.some((u) => Math.abs(u.value - units) < 1e-12) && <option value={String(units)}>x{units}</option>}
           </select>
         </label>
       )}
@@ -192,6 +189,7 @@ export function WeaponsStep() {
         </button>
       </div>
       <p className="muted small">FBX, glTF/GLB, OBJ or STL. One weapon per hand; it is printed with the figure unless it is printed separately.</p>
+      <PropList free={free} />
       {weapons.map((w) => (
         <WeaponCard key={w.id} weapon={w} />
       ))}

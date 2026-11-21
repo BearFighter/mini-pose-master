@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""WP10 acceptance: the bake job (contracts sections 12-16). Uses only the original procedural fixtures."""
+"""The bake job (contracts sections 12-16) on real character kits (tests/engine/kits.py), plus the pure
+budget / repair logic on plain shapes."""
 import json
 import math
 import os
@@ -7,67 +8,53 @@ import random
 import shutil
 import sys
 import tempfile
-import unittest
+
+import numpy as np
 
 import bpy
-from mathutils import Matrix, Quaternion, Vector
+from mathutils import Quaternion, Vector
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(REPO, "engine"))
 sys.path.insert(0, os.path.join(REPO, "engine", "jobs"))
-
+import kits  # noqa: E402
 from mpm import bake as BK  # noqa: E402
 from mpm import pose as PO  # noqa: E402
 from mpm import stlcheck  # noqa: E402
 from mpm.dump import hips_index  # noqa: E402
 from mpm.rig.export import parse_glb_json  # noqa: E402
-import rig as RIGJOB  # noqa: E402  (engine/jobs/rig.py)
-from test_markers import fx, load_truth  # noqa: E402
-from test_rig_build import _run_job, truth_markers  # noqa: E402
+
+# An action pose: right arm raised and bent (the weapon hand), left arm out, a striding left leg.
+ACTION = {"upper_arm.R": -50.0, "forearm.R": -40.0, "upper_arm.L": 30.0, "thigh.L": -30.0, "shin.L": 25.0}
+BAKE = {"scale": {"mode": "height_mm", "height_mm": 40}, "detail": 2.0, "flatten_mm": 0.5}
 
 
-def _ok(code, res, errs, p):
-    assert code == 0 and len(res) == 1 and not errs, p.stdout[-3000:] + p.stderr[-2000:]
-    return json.loads(res[0][len("@@result"):])
+def _pose(rig, spec=ACTION):
+    return {"schema": "mpm.pose/1", "rig_hash": rig["hash"], "root_offset": [0, 0, 0],
+            "deltas": kits.local_x_deltas(rig, spec)}
 
 
-def _local_x_deltas(rig, spec):
-    """{bone index: [w,x,y,z]} rotating each named bone about its own rest X axis (armature space)."""
-    out = {}
-    for b in rig["bones"]:
-        if b["name"] in spec:
-            R = Quaternion(b["rest_q"]).to_matrix()
-            q = (R @ Matrix.Rotation(math.radians(spec[b["name"]]), 3, 'X') @ R.transposed()).to_quaternion()
-            if q.w < 0:
-                q.negate()
-            out[str(b["index"])] = [q.w, q.x, q.y, q.z]
-    return out
+def _weapon_entry(project_dir, name="sword"):
+    """Convert the weapon with the real job and return its section 12 entry on the right-hand socket."""
+    src = kits.weapon(name)
+    d = os.path.join(project_dir, "weapons", name)
+    os.makedirs(d, exist_ok=True)
+    shutil.copy(src, os.path.join(d, os.path.basename(src)))
+    res = kits.ok(*kits.run_job(project_dir, "convert_weapon", {"file": "weapons/%s/%s" % (name, os.path.basename(src))}))
+    lo, hi = np.array(res["bbox_m"][0]), np.array(res["bbox_m"][1])
+    c = (lo + hi) / 2
+    return {"id": name, "file": res["weapon_glb"], "attach_bone": "grip.R",
+            "offset": {"t": [float(-c[0]), float(-c[1]), float(-c[2])], "q": [1, 0, 0, 0], "s": 1.0}, "merge": True}
 
 
-def _project_with_rig(name, tmp):
-    """import job + rig job (truth markers) in a fresh project folder, as the app does."""
-    src = os.path.join(tmp, "source")
-    os.makedirs(src)
-    d = os.path.dirname(fx(name))
-    for f in os.listdir(d):
-        if f == name + ".fbx" or f.endswith(".png"):
-            shutil.copy(os.path.join(d, f), os.path.join(src, f))
-    _ok(*_run_job(tmp, "import", {"file": "source/%s.fbx" % name}))
-    _m, _j, markers = truth_markers(name)
-    _ok(*_run_job(tmp, "rig", {"markers": markers}))
-    with open(os.path.join(tmp, "rig", "rig.json"), encoding="utf-8") as fh:
-        return json.load(fh)
-
-
-def _add_weapon(tmp, name="sword"):
-    os.makedirs(os.path.join(tmp, "weapons"), exist_ok=True)
-    shutil.copy(fx(name, ".glb"), os.path.join(tmp, "weapons", name + ".glb"))
-    g = load_truth(name)["grips"]["main"]["point"]
-    # put the main grip point on the socket origin
-    return {"id": name, "file": "weapons/%s.glb" % name, "attach_bone": "grip.R",
-            "offset": {"t": [-g[0], -g[1], -g[2]], "q": [1, 0, 0, 0], "s": 1.0}, "merge": True}
+def _sealed(path):
+    chk = stlcheck.check(path)
+    assert chk["open_edges"] == 0 and chk["nonmanifold_edges"] == 0, chk
+    return chk
 
 
 # ---------------------------------------------------------------------------------------------------
+# pure logic (no model)
 
 def test_unit_mm():
     rig = {"height_m": 1.8, "floor_z": 0.0, "joints": {"head": [0, 0, 1.6], "head_top": [0, 0, 1.8]}}
@@ -134,119 +121,121 @@ def test_repair_nonmanifold_edge_contact():
 
 def test_attach_frame_and_weapon_placement():
     """Section 12: A = T(posed head) * D_b * R(rest_q) equals pose_bone.matrix; the weapon lands at A*TRS."""
-    tmp = tempfile.mkdtemp(prefix="mpm_bake_")
+    name = kits.need()[0]
+    pr = kits.scratch_copy(name, "rig")
+    w = _weapon_entry(pr.dir)
+    arm, _meshes, rig = kits.open_rig(name)
+    rnd = random.Random(7)
+    deltas = {}
+    for b in rig["bones"]:
+        ax = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-1, 1))).normalized()
+        q = Quaternion(ax, math.radians(rnd.uniform(0, 35)))
+        deltas[str(b["index"])] = [q.w, q.x, q.y, q.z]
+    posed = PO.apply_pose_state(arm, deltas, (0.01, 0.02, -0.03), hips_index=hips_index(rig))
+    for sock in ("grip.L", "grip.R", "hand.R"):
+        b = next(x for x in rig["bones"] if x["canonical"] == sock)
+        Db, h = posed[b["index"]]
+        A = (Db @ Quaternion(b["rest_q"]).to_matrix()).to_4x4()
+        A.translation = h
+        got = BK.attach_frame(arm, rig, sock)
+        err = max(abs(got[r][c] - A[r][c]) for r in range(4) for c in range(4))
+        assert err < 1e-5, (sock, err)
+    w["offset"] = {"t": [0.01, -0.02, 0.005], "q": list(Quaternion((0.3, 0.2, 0.9), 0.7)), "s": 1.25}
+    ref = BK.import_weapon(os.path.join(pr.dir, w["file"]))
+    (_w, placed), = BK.place_weapons(pr.dir, arm, rig, [w])
+    M = BK.attach_frame(arm, rig, "grip.R") @ BK.offset_matrix(w["offset"])
+    worst = 0.0
+    for r, p in zip(ref, placed):
+        for a, b in zip(r.data.vertices, p.data.vertices):
+            worst = max(worst, ((M @ a.co) - b.co).length)
+    assert worst < 1e-6, worst
     try:
-        _m, _j, markers = truth_markers("apose")
-        RIGJOB.build_auto_rig(tmp, markers)
-        rig = json.load(open(os.path.join(tmp, "rig", "rig.json"), encoding="utf-8"))
-        arm = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
-        rnd = random.Random(7)
-        deltas = {}
-        for b in rig["bones"]:
-            ax = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-1, 1))).normalized()
-            q = Quaternion(ax, math.radians(rnd.uniform(0, 35)))
-            deltas[str(b["index"])] = [q.w, q.x, q.y, q.z]
-        posed = PO.apply_pose_state(arm, deltas, (0.01, 0.02, -0.03), hips_index=hips_index(rig))
-        for sock in ("grip.L", "grip.R", "hand.R"):
-            b = next(x for x in rig["bones"] if x["canonical"] == sock)
-            Db, h = posed[b["index"]]
-            A = (Db @ Quaternion(b["rest_q"]).to_matrix()).to_4x4()
-            A.translation = h
-            got = BK.attach_frame(arm, rig, sock)
-            err = max(abs(got[r][c] - A[r][c]) for r in range(4) for c in range(4))
-            assert err < 1e-5, (sock, err)
-        w = _add_weapon(tmp)
-        w["offset"] = {"t": [0.01, -0.02, 0.005], "q": list(Quaternion((0.3, 0.2, 0.9), 0.7)), "s": 1.25}
-        ref = BK.import_weapon(os.path.join(tmp, w["file"]))
-        (_w, placed), = BK.place_weapons(tmp, arm, rig, [w])
-        M = BK.attach_frame(arm, rig, "grip.R") @ BK.offset_matrix(w["offset"])
-        worst = 0.0
-        for r, p in zip(ref, placed):
-            for a, b in zip(r.data.vertices, p.data.vertices):
-                worst = max(worst, ((M @ a.co) - b.co).length)
-        assert worst < 1e-6, worst
-        try:
-            BK.place_weapons(tmp, arm, rig, [dict(w, file="../outside.glb")])
-        except Exception as e:  # noqa: BLE001
-            assert getattr(e, "code", None) == "E_ARGS", e
-        else:
-            raise AssertionError("a weapon outside the project was accepted")
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+        BK.place_weapons(pr.dir, arm, rig, [dict(w, file="../outside.glb")])
+    except Exception as e:  # noqa: BLE001
+        assert getattr(e, "code", None) == "E_ARGS", e
+    else:
+        raise AssertionError("a weapon outside the project was accepted")
 
 
-def test_bake_job_end_to_end():
-    tmp = tempfile.mkdtemp(prefix="mpm_bakejob_")
-    try:
-        rig = _project_with_rig("apose", tmp)
-        deltas = _local_x_deltas(rig, {"upper_arm.R": -50.0, "forearm.R": -40.0, "thigh.L": -30.0,
-                                       "upper_arm.L": 30.0})
-        pose = {"schema": "mpm.pose/1", "rig_hash": rig["hash"], "root_offset": [0, 0, 0], "deltas": deltas}
-        sword = _add_weapon(tmp)
-        bake = {"scale": {"mode": "height_mm", "height_mm": 40}, "detail": 2.0, "flatten_mm": 0.5}
-        r = _ok(*_run_job(tmp, "bake", {"name": "hero", "pose": pose, "weapons": [sword], "bake": bake}))
-        print("  bake %.1f s: %s" % (r["seconds"], r["report"]["summary"].replace("\n", "\n  ")))
-        print("  gates %s, detail levels %s, displaced %s" % (r["gates"], r["detail"]["levels"],
-                                                               r["detail"]["displaced_um"]))
-        assert r["stl"] == "exports/hero.stl" and r["preview_glb"] == "exports/hero_preview.glb"
-        chk = stlcheck.check(os.path.join(tmp, r["stl"]))
-        print("  stlcheck: %s" % {k: chk[k] for k in ("tris", "dims", "open_edges", "nonmanifold_edges")})
-        assert chk["open_edges"] == 0 and chk["nonmanifold_edges"] == 0, chk
-        assert abs(r["unit_mm"] - 40.0 / rig["height_m"]) < 1e-9
-        assert r["gates"]["posed"] and r["gates"]["follow"]["moved_fraction"] >= 0.05
-        # the body has a normal map (subdivided + displaced); the sword fixture has none (level 0)
-        assert r["detail"]["levels"]["apose"] >= 1 and r["detail"]["levels"]["sword_weapon"] == 0, r["detail"]
-        assert "apose" in r["detail"]["displaced_um"], r["detail"]
-        assert r["report"]["pieces"] == 1, "the sword should be merged into the figure"
-        assert not r["weapons"]
-        gj = parse_glb_json(os.path.join(tmp, r["preview_glb"]))
-        assert sorted(m["name"] for m in gj["materials"]) == ["MP_Printable", "MP_TooThin"], gj["materials"]
-        assert os.path.exists(os.path.join(tmp, "exports", "report.json"))
+def test_bake_job_with_a_weapon():
+    """The whole bake on a real kit: posed, a sword in the right hand, merged and separate."""
+    name = kits.need(hard=False)[0]
+    pr = kits.scratch_copy(name, "rig")
+    rig = pr.rig
+    pose, sword = _pose(rig), _weapon_entry(pr.dir)
+    r = kits.ok(*kits.run_job(pr.dir, "bake", {"name": "hero", "pose": pose, "weapons": [sword], "bake": BAKE}))
+    print("  %s: bake %.1f s: %s" % (name, r["seconds"], r["report"]["summary"].replace("\n", "\n  ")))
+    assert r["stl"] == "exports/hero.stl" and r["preview_glb"] == "exports/hero_preview.glb"
+    chk = _sealed(os.path.join(pr.dir, r["stl"]))
+    assert abs(r["unit_mm"] - 40.0 / rig["height_m"]) < 1e-9
+    assert r["gates"]["posed"] and r["gates"]["follow"]["moved_fraction"] >= 0.05
+    textured = [m["name"] for m in rig["meshes"] if m["normal_map"]]
+    assert textured, "%s has no normal-mapped mesh: the detail bake is not being tested" % name
+    for m in textured:   # real kits carry their detail in normal maps: it must be baked into the surface
+        assert r["detail"]["levels"][m] >= 1 and m in r["detail"]["displaced_um"], (m, r["detail"])
+    assert r["report"]["pieces"] == 1, "the sword should be merged into the figure"
+    assert not r["weapons"]
+    gj = parse_glb_json(os.path.join(pr.dir, r["preview_glb"]))
+    assert sorted(m["name"] for m in gj["materials"]) == ["MP_Printable", "MP_TooThin"], gj["materials"]
+    assert os.path.exists(os.path.join(pr.dir, "exports", "report.json"))
 
-        # the same pose without the sword: the merged sword must have added material
-        r0 = _ok(*_run_job(tmp, "bake", {"name": "bare", "pose": pose, "weapons": [], "bake": bake}))
-        c0 = stlcheck.check(os.path.join(tmp, r0["stl"]))
-        assert c0["open_edges"] == 0 and c0["nonmanifold_edges"] == 0, c0
-        assert 30.0 < c0["dims"][2] <= 40.0 + 0.05, c0["dims"]   # standing scale: a raised leg prints shorter
-        assert chk["tris"] != c0["tris"] or chk["dims"] != c0["dims"]
+    # separate weapon STL
+    rs = kits.ok(*kits.run_job(pr.dir, "bake", {"name": "sep", "pose": pose, "weapons": [sword],
+                                                "bake": dict(BAKE, weapons_separate=True, detail=0)}))
+    assert len(rs["weapons"]) == 1 and rs["weapons"][0]["stl"] == "exports/sep_sword.stl", rs["weapons"]
+    cw = _sealed(os.path.join(pr.dir, rs["weapons"][0]["stl"]))
+    _sealed(os.path.join(pr.dir, rs["stl"]))
+    assert max(cw["dims"]) > 5.0
 
-        # separate weapon STL
-        rs = _ok(*_run_job(tmp, "bake", {"name": "sep", "pose": pose, "weapons": [sword],
-                                         "bake": dict(bake, weapons_separate=True)}))
-        assert len(rs["weapons"]) == 1 and rs["weapons"][0]["stl"] == "exports/sep_sword.stl", rs["weapons"]
-        cw = stlcheck.check(os.path.join(tmp, rs["weapons"][0]["stl"]))
-        assert cw["open_edges"] == 0 and cw["nonmanifold_edges"] == 0, cw
-        print("  separate sword dims %s mm" % cw["dims"])
-        assert max(cw["dims"]) > 5.0
+    # a pose made for another rig is refused before any work
+    code, _res, err, p = kits.run_job(pr.dir, "bake", {"pose": dict(pose, rig_hash="0" * 40), "bake": BAKE})
+    assert code != 0 and err and err["code"] == "E_ARGS", p.stdout[-1500:]
 
-        # a pose made for another rig is refused before any work
-        code, res, errs, p = _run_job(tmp, "bake", {"pose": dict(pose, rig_hash="0" * 40), "bake": bake})
-        assert code != 0 and errs and json.loads(errs[0][len("@@error"):])["code"] == "E_ARGS", p.stdout[-1500:]
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+
+def test_every_kit_bakes_to_a_sealed_print():
+    """Each real kit, posed, at 40 mm: one sealed piece at the standing scale."""
+    for name in kits.need():
+        pr = kits.scratch_copy(name, "rig")
+        rig = pr.rig
+        r = kits.ok(*kits.run_job(pr.dir, "bake", {"name": name, "pose": _pose(rig), "bake": BAKE}))
+        chk = _sealed(os.path.join(pr.dir, r["stl"]))
+        rep = r["report"]
+        print("  %s: %.1f x %.1f x %.1f mm, %d triangles, %d piece(s), thin walls %.1f %% -> %.1f %%, %d sheets, %.0f s" % (
+            name, chk["dims"][0], chk["dims"][1], chk["dims"][2], chk["tris"], rep["pieces"],
+            rep["thin_area_pct_before"], rep["thin_area_pct"], rep["sheets"], r["seconds"]))
+        # thin-wall thickening is on by default: fingers and blades must come out printable
+        assert rep["thickened_verts"] > 0 and rep["thin_area_pct"] < 0.35 * rep["thin_area_pct_before"] + 0.5, (
+            name, rep["thin_area_pct_before"], rep["thin_area_pct"])
+        assert rep["thin_area_pct"] < 2.0, "%s: %.1f %% of the surface is still under the minimum wall" % (
+            name, rep["thin_area_pct"])
+        assert 28.0 < chk["dims"][2] <= 40.0 + 0.7, (name, chk["dims"])   # standing scale: a stride is lower
+        assert rep["pieces"] == 1, "%s: %d separate pieces" % (name, rep["pieces"])
+        assert chk["volume"] > 0
+
+
+def test_thickening_can_be_turned_off():
+    name = kits.need(hard=False)[0]
+    pr = kits.scratch_copy(name, "rig")
+    r = kits.ok(*kits.run_job(pr.dir, "bake", {"name": "thin", "pose": _pose(pr.rig),
+                                               "bake": dict(BAKE, detail=0, thicken_thin=False)}))
+    rep = r["report"]
+    assert rep["thickened_verts"] == 0 and "thin_area_pct_before" not in rep, rep
+    _sealed(os.path.join(pr.dir, r["stl"]))
 
 
 def test_bake_dense_uses_full_detail_mesh():
     """A model over the proxy limit is rigged on the proxy; the bake must pose and print the original."""
-    if not os.path.exists(fx("dense")):
-        raise unittest.SkipTest("dense.fbx not present")
-    tmp = tempfile.mkdtemp(prefix="mpm_bakedense_")
-    try:
-        rig = _project_with_rig("dense", tmp)
-        assert all(m["name"].endswith("__proxy") for m in rig["meshes"]), rig["meshes"]
-        deltas = _local_x_deltas(rig, {"upper_arm.L": 40.0, "thigh.R": -30.0})
-        pose = {"schema": "mpm.pose/1", "rig_hash": rig["hash"], "deltas": deltas}
-        bake = {"scale": {"mode": "height_mm", "height_mm": 40}, "detail": 0, "max_tris": 1_000_000}
-        r = _ok(*_run_job(tmp, "bake", {"name": "dense", "pose": pose, "bake": bake}))
-        print("  dense bake %.1f s, transferred %s, follow %s, source tris %d" % (
-            r["seconds"], r["weights_transferred"], r["gates"]["follow"], r["report"]["source_tris"]))
-        assert r["weights_transferred"] and not any(n.endswith("__proxy") for n in r["weights_transferred"])
-        assert r["report"]["source_tris"] > 300_000, r["report"]["source_tris"]
-        rep = r["report"]
-        assert rep["sheets"] == 0 and rep["closed"] == rep["parts"], "a closed model must stay closed: %s" % rep["summary"]
-        chk = stlcheck.check(os.path.join(tmp, r["stl"]))
-        print("  stlcheck: %s" % {k: chk[k] for k in ("tris", "dims", "open_edges", "nonmanifold_edges")})
-        assert chk["open_edges"] == 0 and chk["nonmanifold_edges"] == 0, chk
-        assert 30.0 < chk["dims"][2] <= 40.0 + 0.05, chk["dims"]
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+    name = kits.need(hard=False)[0]
+    pr = kits.project_from_model(kits.dense_model(name), "rig", label="dense")
+    with open(os.path.join(pr.dir, "rig", "rig.json"), encoding="utf-8") as fh:
+        rig = json.load(fh)
+    assert pr.results["import"]["proxy"] is True and pr.results["import"]["tri_count"] > 300_000
+    assert all(m["name"].endswith("__proxy") for m in rig["meshes"]), rig["meshes"]
+    bake = {"scale": {"mode": "height_mm", "height_mm": 40}, "detail": 0, "max_tris": 1_000_000}
+    r = kits.ok(*kits.run_job(pr.dir, "bake", {"name": "dense", "pose": _pose(rig), "bake": bake}))
+    print("  dense %s: bake %.1f s, transferred %s, follow %s, source tris %d" % (
+        name, r["seconds"], r["weights_transferred"], r["gates"]["follow"], r["report"]["source_tris"]))
+    assert r["weights_transferred"] and not any(n.endswith("__proxy") for n in r["weights_transferred"])
+    assert r["report"]["source_tris"] > 300_000, r["report"]["source_tris"]
+    chk = _sealed(os.path.join(pr.dir, r["stl"]))
+    assert 28.0 < chk["dims"][2] <= 40.0 + 0.7, chk["dims"]   # thickened thin tips may add a little

@@ -33,7 +33,7 @@ def log(*args, stage=None):
 class Settings:
     def __init__(self, height=40.0, base_diameter=0.0, base_height=3.0,
                  min_thickness=0.6, voxel=None, max_tris=1_000_000,
-                 hole_ratio=0.3, min_part_volume=0.5, flatten=0.5, unit_mm=None):
+                 hole_ratio=0.3, min_part_volume=0.5, flatten=0.5, unit_mm=None, thicken=False):
         self.height = float(height)
         # Fixed scale (mm per model unit) instead of fitting to `height`;
         # used for posed models, so a crouch comes out smaller, not stretched.
@@ -52,6 +52,8 @@ class Settings:
         self.hole_ratio = float(hole_ratio)
         # Separate floating bits smaller than this (mm^3) are deleted.
         self.min_part_volume = float(min_part_volume)
+        # Push walls thinner than min_thickness apart until they reach it (fingers, blades at small scales).
+        self.thicken = bool(thicken)
 
 
 # --------------------------------------------------------------------------
@@ -430,6 +432,51 @@ def _thin_check(me, min_t, eps):
     return thin, float(area[thin].sum()) / total * 100.0
 
 
+def _thicken_thin(ob, min_t, eps, rounds=4):
+    """Make thin walls printable: every vertex whose wall (measured straight inward) is thinner than
+    min_t moves outward along its normal by half the shortfall, so both sides of a blade or a finger part
+    until the wall is min_t thick. The push is spread to neighbouring vertices so the surface stays smooth.
+    Shapes get slightly bolder; nothing thick enough moves. Returns the number of vertices moved."""
+    me = ob.data
+    moved = np.zeros(len(me.vertices), bool)
+    ed = np.empty(len(me.edges) * 2, np.int32)
+    me.edges.foreach_get("vertices", ed)
+    ed = ed.reshape(-1, 2)
+    for _ in range(rounds):
+        co = _np_verts(me)
+        n = len(co)
+        tri = _np_tris(me)
+        tree = BVHTree.FromPolygons(co.tolist(), tri.tolist(), all_triangles=True)
+        nor = np.empty(n * 3, np.float32)
+        me.vertices.foreach_get("normal", nor)
+        nor = nor.reshape(-1, 3).astype(np.float64)
+        origins = (co - nor * eps).tolist()
+        dirs = (-nor).tolist()
+        rc = tree.ray_cast
+        push = np.zeros(n)
+        for i in range(n):
+            d = dirs[i]
+            loc, hn, _f, dist = rc(origins[i], d, min_t)
+            if loc is not None and hn[0] * d[0] + hn[1] * d[1] + hn[2] * d[2] > 0.5:
+                push[i] = 0.5 * (min_t - dist) + 0.02 * min_t
+        if not push.any():
+            break
+        # feather the push over two rings of neighbours, never lowering it where it is needed
+        for _k in range(2):
+            acc = np.zeros(n)
+            cnt = np.zeros(n)
+            np.add.at(acc, ed[:, 0], push[ed[:, 1]])
+            np.add.at(acc, ed[:, 1], push[ed[:, 0]])
+            np.add.at(cnt, ed[:, 0], 1)
+            np.add.at(cnt, ed[:, 1], 1)
+            push = np.maximum(push, 0.5 * acc / np.maximum(cnt, 1))
+        moved |= push > 0
+        co = co + nor * push[:, None]
+        me.vertices.foreach_set("co", co.astype(np.float32).ravel())
+        me.update()
+    return int(moved.sum())
+
+
 def write_stl(me, path):
     """Binary STL, coordinates as-is (mm)."""
     co = _np_verts(me).astype(np.float32)
@@ -541,6 +588,12 @@ def make_printable(objects, s, out_path, name="model", collection=None):
     rep["nonmanifold_repaired_verts"] = _repair_nonmanifold(ob)
     if rep["nonmanifold_repaired_verts"]:
         log(f"  repaired {rep['nonmanifold_repaired_verts']} vertices around pinched edges")
+    rep["thickened_verts"] = 0
+    if s.thicken:
+        _t, before = _thin_check(ob.data, s.min_thickness, voxel * 0.05)
+        rep["thin_area_pct_before"] = round(before, 2)
+        log("  thickening thin walls...", stage="thin_check")
+        rep["thickened_verts"] = _thicken_thin(ob, s.min_thickness, voxel * 0.05)
 
     co = _np_verts(ob.data)
     ob.data.transform(Matrix.Translation((-centre[0], -centre[1], -co[:, 2].min())))

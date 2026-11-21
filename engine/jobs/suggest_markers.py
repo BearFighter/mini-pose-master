@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Job `suggest_markers`: measure the normalised model in rig/scene.blend and write rig/markers.json."""
-import importlib
-import importlib.util
 import json
 import os
 import sys
@@ -26,19 +24,10 @@ def main(job):
     except Exception as e:  # noqa: BLE001
         raise protocol.MpmError("E_IO", "cannot open scene.blend: %s" % e, {"path": scene})
 
-    protocol.progress("body", 0.2, "measuring the body")
+    protocol.progress("body", 0.2, "measuring the body and the hands")
     objs = body.select_meshes(list(bpy.data.objects))
-    res = body.analyse_body_markers(objs)
+    res = body.suggest_all(objs)
     markers, warnings = res["markers"], list(res["warnings"])
-
-    if importlib.util.find_spec("mpm.rig.fingers") is not None:
-        protocol.progress("fingers", 0.7, "measuring the hands")
-        fingers = importlib.import_module("mpm.rig.fingers")
-        fm, fw, _hand_info = fingers.suggest_finger_markers(objs, markers, res["H"])
-        markers.update(fm)
-        warnings += list(fw)
-    else:
-        warnings.append("finger markers not available")
 
     protocol.progress("save", 0.95, "writing markers.json")
     os.makedirs(rig_dir, exist_ok=True)

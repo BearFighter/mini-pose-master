@@ -308,6 +308,50 @@ select:focus {
   font-size: 12px;
 }
 
+button.mini {
+  margin-left: 6px;
+  padding: 0 6px;
+  font-size: 11px;
+}
+
+/* --- parts of the imported file, props offered as weapons */
+
+.parts,
+.prop-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.part,
+.prop-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.part.off .part-name,
+.part.off .part-tris {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.part-name,
+.prop-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.part-tris {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -1202,4 +1246,8 @@ pre.report {
 
 p.hint {
   color: var(--accent);
+}
+
+.warn-text {
+  color: var(--warn, #e0a030);
 }

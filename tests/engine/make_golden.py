@@ -1,8 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Write tests/golden/<case>/ for the GLB <-> three.js conformance tests (WP5).
+"""Write tests/golden/<case>/ for the GLB <-> three.js conformance test (tests/ts/conformance.test.ts).
 
-Run directly:  blender -b --factory-startup --python-exit-code 1 -P tests/engine/make_golden.py
-Cases: auto_apose (WP4c rig from truth markers), imported_mixamo (WP4d, suggested mapping).
+Run directly:  blender -b --factory-startup --python-exit-code 1 -P tests/engine/make_golden.py -- [kit]
+
+The data comes from a real kit (tests/engine/kits.py; default: the first configured ordinary kit), never
+from a figure made for the app, and tests/golden is git-ignored:
+  auto rig      the kit's cached project (import -> suggest_markers -> rig)
+  imported rig  the same kit with a Mixamo-style skeleton (rigged_kit.rigged_variant), rigged by the real
+                jobs with the suggested mapping
 Files per case: rig.json, rig_noimg.glb (pinned export, no images), poses.json, expected.json.
 """
 import json
@@ -11,22 +16,24 @@ import os
 import random
 import shutil
 import sys
-import tempfile
 
 import bpy
 from mathutils import Quaternion, Vector
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(REPO, "engine"))
-sys.path.insert(0, os.path.join(REPO, "engine", "jobs"))
 sys.path.insert(0, os.path.join(REPO, "tests", "engine"))
 from mpm import dump  # noqa: E402
-from mpm.rig import export, imported  # noqa: E402
-import rig as RIGJOB  # noqa: E402
-import test_imported  # noqa: E402
-import test_rig_build  # noqa: E402
+from mpm import pose as PO  # noqa: E402
+from mpm.rig import export  # noqa: E402
+import kits  # noqa: E402
+import rigged_kit  # noqa: E402
 
 OUT = os.path.join(REPO, "tests", "golden")
+# Folder names the TypeScript test looks for (its CASES list); they are only labels.
+CASE_AUTO = "auto_apose"
+CASE_IMPORTED = "imported_mixamo"
+IMPORTED_CONVENTION = "mixamo"
 SAMPLES = 2000
 
 
@@ -35,26 +42,34 @@ def random_poses(arm, seed=42, n=3):
     rnd = random.Random(seed)
     bones = list(arm.data.bones)
     index = {b.name: i for i, b in enumerate(bones)}
+    depth = lambda b: 0 if b.parent is None else 1 + depth(b.parent)  # noqa: E731
+    order = sorted(range(len(bones)), key=lambda i: (depth(bones[i]), i))   # parents first
     poses = [{"schema": "mpm.pose/1", "rig_hash": "", "root_offset": [0, 0, 0], "deltas": {}}]
     for _ in range(n):
         D = {}
-        for i, b in enumerate(bones):  # bones are created parents-first in both cases
+        for i in order:
+            b = bones[i]
             ax = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-1, 1))).normalized()
             q = Quaternion(ax, math.radians(rnd.uniform(0, 40)))
-            parent = D.get(index[b.parent.name]) if b.parent else None
-            D[i] = (parent @ q) if parent is not None else q
-        deltas = {str(i): [q.w, q.x, q.y, q.z] for i, q in D.items()}
+            D[i] = (D[index[b.parent.name]] @ q) if b.parent else q
+        deltas = {str(i): [q.w, q.x, q.y, q.z] for i, q in sorted(D.items())}
         off = [rnd.uniform(-0.05, 0.05) for _ in range(3)]
         poses.append({"schema": "mpm.pose/1", "rig_hash": "", "root_offset": off, "deltas": deltas})
     return poses
 
 
-def write_case(name, arm, meshes, project):
-    rig = json.load(open(os.path.join(project, "rig", "rig.json"), encoding="utf-8"))
-    d = os.path.join(OUT, name)
-    os.makedirs(d, exist_ok=True)
-    shutil.copy(os.path.join(project, "rig", "rig.json"), os.path.join(d, "rig.json"))
-    from mpm import pose as PO
+def write_case(case, project_dir, source):
+    """Golden files of one rigged project (its rig/rig.blend and rig/rig.json)."""
+    with open(os.path.join(project_dir, "rig", "rig.json"), encoding="utf-8") as fh:
+        rig = json.load(fh)
+    bpy.ops.wm.open_mainfile(filepath=os.path.join(project_dir, "rig", "rig.blend"))
+    arm = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
+    meshes = [bpy.data.objects[m["name"]] for m in rig["meshes"]]
+    d = os.path.join(OUT, case)
+    if os.path.isdir(d):
+        shutil.rmtree(d)
+    os.makedirs(d)
+    shutil.copy(os.path.join(project_dir, "rig", "rig.json"), os.path.join(d, "rig.json"))
     PO.rest_pose(arm)
     export.export_glb(arm, meshes, os.path.join(d, "rig_noimg.glb"), images=False)
     poses = random_poses(arm)
@@ -65,25 +80,32 @@ def write_case(name, arm, meshes, project):
               for o in meshes}
     expected = [dump.dump(arm, meshes, rig, p, sample) for p in poses]
     PO.rest_pose(arm)
-    json.dump(poses, open(os.path.join(d, "poses.json"), "w", encoding="utf-8"))
-    json.dump(expected, open(os.path.join(d, "expected.json"), "w", encoding="utf-8"))
-    print("golden", name, "bones", len(rig["bones"]), "samples", {k: len(v) for k, v in sample.items()})
+    with open(os.path.join(d, "poses.json"), "w", encoding="utf-8") as fh:
+        json.dump(poses, fh)
+    with open(os.path.join(d, "expected.json"), "w", encoding="utf-8") as fh:
+        json.dump(expected, fh)
+    with open(os.path.join(d, "source.json"), "w", encoding="utf-8") as fh:
+        json.dump(source, fh, indent=1)
+    print("golden %s: %s, kind %s, %d bones, %d meshes, %d sampled vertices, %d poses" % (
+        case, source, rig["kind"], len(rig["bones"]), len(meshes), sum(len(v) for v in sample.values()), len(poses)))
 
 
 def main():
-    tmp = tempfile.mkdtemp(prefix="mpm_golden_")
-    try:
-        meshes, joints, markers = test_rig_build.truth_markers("apose")
-        RIGJOB.build_auto_rig(os.path.join(tmp, "auto"), markers)
-        arm = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
-        write_case("auto_apose", arm, meshes, os.path.join(tmp, "auto"))
+    argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+    have = kits.names()
+    if not have:
+        print("make_golden: no real kits configured (tests/local/kits.json); see tests/engine/kits.py")
+        sys.exit(1)
+    kit = argv[0] if argv else (kits.names(hard=False) or have)[0]
+    if kit not in have:
+        print("make_golden: unknown kit %r (configured: %s)" % (kit, ", ".join(have)))
+        sys.exit(1)
+    write_case(CASE_AUTO, kits.project(kit, "rig").dir, {"kit": kit, "rig": "auto"})
 
-        meshes, arm = test_imported.load_rigged("rigged_mixamo")
-        mapping = imported.suggest_mapping(arm)["mapping"]
-        imported.rig_imported(arm, meshes, os.path.join(tmp, "mixamo"), mapping)
-        write_case("imported_mixamo", arm, meshes, os.path.join(tmp, "mixamo"))
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+    pr = kits.project_from_model(rigged_kit.rigged_variant(kit, IMPORTED_CONVENTION), upto="import",
+                                 label="golden_" + kit)
+    kits.ok(*kits.run_job(pr.dir, "rig", {"mapping": {}}))   # {} = the suggested mapping
+    write_case(CASE_IMPORTED, pr.dir, {"kit": kit, "rig": "imported", "convention": IMPORTED_CONVENTION})
 
 
 main()

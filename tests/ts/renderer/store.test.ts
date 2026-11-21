@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Renderer store slices and flows (src/renderer/store) against a fake window.mpm.
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { JobError } from '../../../src/renderer/api'
 import { addRecent, loadRecent, RECENT_KEY, RECENT_MAX, removeRecent } from '../../../src/renderer/lib/recent'
@@ -21,10 +19,11 @@ import { appendTail, LOG_TAIL_MAX } from '../../../src/renderer/store/jobs'
 import { editsFromMapping, MAPPABLE_BONES, mappingForJob } from '../../../src/renderer/store/rig'
 import type { ImportJobResult, RigJobResult, SuggestMarkersResult } from '../../../src/shared/jobResults'
 import type { MarkerMap, ProjectData } from '../../../src/shared/project'
-import type { RigJson } from '../../../src/shared/rig'
+import { autoRig, importedRig } from '../helpers/skeletonRig'
 import { FakeMpm, installFakeMpm } from './fakeMpm'
 
-const RIG = JSON.parse(readFileSync(join(__dirname, '..', 'fixtures', 'rig_auto_apose.json'), 'utf8')) as RigJson
+const RIG = autoRig()
+const IMPORTED = importedRig()
 const yes = () => true
 const S = () => useStore.getState()
 
@@ -301,14 +300,15 @@ describe('flows', () => {
     expect(S().mappingEdits.hips).toBe('mixamorig:Hips')
     S().setMappingEdit('head', 'mixamorig:Tail')
     fake.script('rig', {
-      events: [{ kind: 'result', payload: { rig_json: '', rig_glb: '', follow: { moved_fraction: 0.3, worst_drift: 0, grow: 1 }, bones: 3, hash: RIG.hash, seconds: 1 } }]
+      events: [{ kind: 'result', payload: { rig_json: '', rig_glb: '', follow: { moved_fraction: 0.3, worst_drift: 0, grow: 1 }, bones: IMPORTED.bones.length, hash: IMPORTED.hash, seconds: 1 } }]
     })
-    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ ...RIG, kind: 'imported' }), { status: 200 }))
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify(IMPORTED), { status: 200 }))
     await buildRig('imported')
     expect(fake.runs.at(-1)!.args).toEqual({
       mapping: { 'mixamorig:Hips': 'hips', 'mixamorig:Spine': 'spine', 'mixamorig:Tail': 'head' }
     })
-    expect(S().data!.rig).toEqual({ kind: 'imported', hash: RIG.hash })
+    expect(S().data!.rig).toEqual({ kind: 'imported', hash: IMPORTED.hash })
+    expect(S().rigJson?.bones.length).toBe(IMPORTED.bones.length)
   })
 
   it('shows job errors in the banner and rejects; cancellation is not an error', async () => {

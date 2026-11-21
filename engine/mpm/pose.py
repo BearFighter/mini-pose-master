@@ -111,7 +111,7 @@ def follow_check(arm, meshes, H):
         for v in o.data.vertices:
             for g in v.groups:
                 n = gi.get(g.group)
-                if g.weight > 0.95 and n in bones:
+                if g.weight > 0.99 and n in bones:  # rigid to one bone: its distance to that bone must hold
                     b, pb_ = bones[n], pbs[n]
                     d0 = _seg_dist1(r[v.index], np.array(b.head_local), np.array(b.tail_local))
                     d1 = _seg_dist1(p[v.index], np.array(pb_.head), np.array(pb_.tail))

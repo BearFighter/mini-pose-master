@@ -1,18 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Weapon placement helpers (src/renderer/lib/weapons.ts) and the viewer's attach/helper nesting.
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { BufferAttribute, BufferGeometry, Matrix4, Mesh, Object3D, Quaternion, Vector3 } from 'three'
 import { describe, expect, it } from 'vitest'
 import { detailNumbers as numbers } from '../../../src/renderer/lib/errors'
 import {
   defaultOffset,
   gripRotation,
-  gripTolerance,
   lengthMm,
   m4B2T,
   nextWeaponId,
   principalAxis,
+  printMm,
   supportFromHit,
   translationFor,
   unitMm,
@@ -23,10 +21,10 @@ import {
 import { DEFAULT_BAKE } from '../../../src/renderer/store/bake'
 import { quatB2T, vecB2T, vecT2B } from '../../../src/shared/coords'
 import { q4, v3 } from '../../../src/shared/math'
-import type { RigJson } from '../../../src/shared/rig'
 import { attachFrame, weaponMatrix } from '../../../src/shared/weaponPose'
+import { autoRig } from '../helpers/skeletonRig'
 
-const RIG = JSON.parse(readFileSync(join(__dirname, '..', 'fixtures', 'rig_auto_apose.json'), 'utf8')) as RigJson
+const RIG = autoRig()
 const close = (a: Vector3, b: Vector3, eps = 1e-9) => expect(a.distanceTo(b)).toBeLessThan(eps)
 
 describe('grip placement', () => {
@@ -80,12 +78,12 @@ describe('grip placement', () => {
 })
 
 describe('print scale', () => {
-  it('unit_mm and tol_m follow engine/mpm/bake.py', () => {
+  it('unit_mm follows engine/mpm/bake.py', () => {
     expect(unitMm(RIG, DEFAULT_BAKE)).toBeCloseTo(40 / RIG.height_m, 12)
     const j = RIG.joints
     const eye = j.head[2] + 0.4 * (j.head_top[2] - j.head[2]) - RIG.floor_z
     expect(unitMm(RIG, { ...DEFAULT_BAKE, scale: { mode: 'heroic', size_mm: 32 } })).toBeCloseTo(32 / eye, 12)
-    expect(gripTolerance(RIG, DEFAULT_BAKE)).toBeCloseTo(0.2 / (40 / RIG.height_m), 12)
+    expect(printMm(0.01, unitMm(RIG, DEFAULT_BAKE))).toBeCloseTo(0.4 / RIG.height_m, 12)
     expect(lengthMm([0.05, 0.9, 0.1], 0.5, 20)).toBeCloseTo(9, 12)
     expect(nextWeaponId(['w1', 'w3'])).toBe('w2')
   })

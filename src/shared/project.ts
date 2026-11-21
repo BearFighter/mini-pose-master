@@ -15,6 +15,12 @@ export interface Orientation {
   unit_scale: number
 }
 
+/**
+ * `source.objects` / the import job's `objects` argument: per object name, whether it is part of the
+ * character. Objects that are not named keep the automatic choice.
+ */
+export type PartsChoice = Record<string, boolean>
+
 /** One marker of rig/markers.json (contracts section 4). Blender frame, metres. */
 export interface MarkerEntry {
   p: Vec3
@@ -41,6 +47,10 @@ export interface RigDraft {
 export interface WeaponEntry {
   id: string
   file: string
+  /** The copied file convert_weapon ran on (to convert it again with other units). */
+  source?: string
+  /** The unit scale convert_weapon used. */
+  unit_scale?: number
   attach_bone: string
   offset: { t: Vec3; q: QuatWXYZ; s: number }
   support: { enabled: boolean; side: 'L' | 'R'; point: Vec3; normal: Vec3; axis: Vec3 }
@@ -55,6 +65,8 @@ export interface BakeSettings {
   flatten_mm: number
   base_mm: number
   min_wall_mm: number
+  /** Thicken walls below min_wall_mm (contracts section 14). Absent = true. */
+  thicken_thin?: boolean
   weapons_separate: boolean
   max_tris: number
 }
@@ -71,7 +83,8 @@ export interface ProjectData {
   schemaVersion: number
   app: string
   appVersion: string
-  source: { file: string; orientation: Orientation | null } | null
+  /** `objects` is the user's parts choice of the Import step (absent = the automatic choice). */
+  source: { file: string; orientation: Orientation | null; objects?: PartsChoice } | null
   rig: { kind: 'auto' | 'imported'; hash: string } | null
   pose: PoseState | null
   hands: ProjectHands | null

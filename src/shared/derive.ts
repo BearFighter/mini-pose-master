@@ -49,13 +49,14 @@ export function deriveJoints(markers: Record<string, Vec3 | Vector3>): Record<st
     for (const f of ['index', 'middle', 'ring', 'pinky']) {
       const a = need(`${f}_0_${s}`)
       const t = need(`${f}_tip_${s}`)
-      J[`${f}_1_${s}`] = lerp(a, t, 0.45)
-      J[`${f}_2_${s}`] = lerp(a, t, 0.75)
+      // optional knuckle points (curved fingers, claws) win over the straight-line default
+      J[`${f}_1_${s}`] ??= lerp(a, t, 0.45)
+      J[`${f}_2_${s}`] ??= lerp(a, t, 0.75)
     }
     const ta = need(`thumb_0_${s}`)
     const tt = need(`thumb_tip_${s}`)
-    J[`thumb_1_${s}`] = lerp(ta, tt, 0.4)
-    J[`thumb_2_${s}`] = lerp(ta, tt, 0.73)
+    J[`thumb_1_${s}`] ??= lerp(ta, tt, 0.4)
+    J[`thumb_2_${s}`] ??= lerp(ta, tt, 0.73)
     const fr = handFrame(J, s)
     const centre = [`index_0_${s}`, `middle_0_${s}`, `ring_0_${s}`, `pinky_0_${s}`, `wrist_${s}`]
       .map((k) => J[k])

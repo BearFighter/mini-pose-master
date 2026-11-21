@@ -10,11 +10,12 @@ import type {
   SuggestMappingResult,
   SuggestMarkersResult
 } from '../../shared/jobResults'
-import type { Orientation, ProjectData } from '../../shared/project'
+import type { Orientation, PartsChoice, ProjectData } from '../../shared/project'
 import type { RigJson } from '../../shared/rig'
 import { api, cleanError, runJob, setJobProjectDir } from '../api'
 import { handMarkerNames, isFingerMarker, markerHeight } from '../lib/markers'
 import { pickOrientation, sameOrientation } from '../lib/orientation'
+import { sameChoice, sameObjects } from '../lib/parts'
 import { projectName, projectUrl } from '../lib/paths'
 import { NO_HANDS, normaliseHands } from '../lib/hands'
 import { addRecent } from '../lib/recent'
@@ -223,13 +224,17 @@ export function requireProject(): { dir: string; data: ProjectData } {
   return { dir, data }
 }
 
-/** Copies a model into the project, then runs the import job with the automatic orientation. */
-export function importModel(file: string): Promise<ImportJobResult> {
+/**
+ * Copies a model into the project, then runs the import job with the automatic orientation. A new
+ * model starts without a parts choice (the job separates props by itself) unless `objects` gives one.
+ */
+export function importModel(file: string, objects?: PartsChoice): Promise<ImportJobResult> {
   return withJob('import', 'Importing the model', async () => {
     const { dir } = requireProject()
     const copied = await api.project.importModel(dir, file)
     // The main process saved the project with the new source and rig = null; keep our other edits.
-    S().updateProject((d) => ({ ...d, source: copied.project.source, rig: null, rigDraft: { markers: null } }))
+    const source = copied.project.source && objects ? { ...copied.project.source, objects: { ...objects } } : copied.project.source
+    S().updateProject((d) => ({ ...d, source, rig: null, rigDraft: { markers: null } }))
     S().resetRig()
     await saveProject()
     return importJob(undefined)
@@ -241,32 +246,43 @@ export async function chooseAndImportModel(): Promise<void> {
   if (file) await importModel(file)
 }
 
-/** Re-runs the import job with an explicit orientation ("Apply"), or with the saved/automatic one. */
-export function rerunImport(orientation?: Orientation): Promise<ImportJobResult> {
-  return withJob('import', 'Importing the model', () => importJob(orientation ?? S().data?.source?.orientation ?? undefined))
+/**
+ * Re-runs the import job with an explicit orientation ("Apply"), or with the saved/automatic one;
+ * `objects` is a new parts choice (else the saved one is sent again).
+ */
+export function rerunImport(orientation?: Orientation, objects?: PartsChoice): Promise<ImportJobResult> {
+  return withJob('import', 'Importing the model', () => importJob(orientation ?? S().data?.source?.orientation ?? undefined, objects))
 }
 
-async function importJob(orientation: Orientation | undefined): Promise<ImportJobResult> {
+/** The Parts list's "Apply": imports again with `objects` (a boolean per object) and the current orientation. */
+export function applyParts(objects: PartsChoice): Promise<ImportJobResult> {
+  return rerunImport(undefined, objects)
+}
+
+async function importJob(orientation: Orientation | undefined, objects?: PartsChoice): Promise<ImportJobResult> {
   const { data } = requireProject()
   if (!data.source) throw new Error('Choose a model first')
+  const saved = data.source.objects
+  const choice = objects ?? saved
   const args: Record<string, unknown> = { file: data.source.file }
   if (orientation) args.orientation = pickOrientation(orientation)
+  if (choice) args.objects = { ...choice }
+  const before = S().importInfo
   const result = await job<ImportJobResult>('import', args)
   const s = S()
   const used = pickOrientation(result.orientation_used)
-  // scene.blend was rebuilt. With a new orientation, markers and any rig made from the old scene
-  // no longer apply; with the same one (a re-run) they stay valid.
-  const changed = !sameOrientation(s.data?.source?.orientation, used)
+  // scene.blend was rebuilt. With a new orientation or other parts in the character, markers and any
+  // rig made from the old scene no longer apply; with the same ones (a re-run) they stay valid.
+  // Without the last summary to compare with, a changed parts choice counts as other parts.
+  const partsChanged = before ? !sameObjects(before.objects, result.objects) : !sameChoice(saved, choice)
+  const changed = partsChanged || !sameOrientation(s.data?.source?.orientation, used)
+  const withImport = (d: ProjectData): ProjectData['source'] =>
+    d.source ? { ...d.source, orientation: used, ...(choice ? { objects: { ...choice } } : {}) } : d.source
   if (changed) {
     s.resetRig()
-    s.updateProject((d) => ({
-      ...d,
-      source: d.source ? { ...d.source, orientation: used } : d.source,
-      rig: null,
-      rigDraft: { markers: null }
-    }))
+    s.updateProject((d) => ({ ...d, source: withImport(d), rig: null, rigDraft: { markers: null } }))
   } else {
-    s.updateProject((d) => ({ ...d, source: d.source ? { ...d.source, orientation: used } : d.source }))
+    s.updateProject((d) => ({ ...d, source: withImport(d) }))
   }
   s.setImportInfo(result)
   s.setPreview(projectUrl(result.preview_glb || 'rig/preview.glb', nextVersion()))

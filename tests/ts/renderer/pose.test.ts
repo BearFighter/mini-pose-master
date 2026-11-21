@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // WP8c: the pose slice (input snapshots, undo/redo, merge rule), project.pose save/load, rig-hash
 // changes, gizmo delta maths, copy L->R, the thumbnail queue, the clip list, and per-frame timing.
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { Quaternion, Vector3 } from 'three'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -51,9 +49,10 @@ import { mul, q4, quatAngleDeg, rotBetween, v3, wxyz } from '../../../src/shared
 import { mirrorPose } from '../../../src/shared/mirror'
 import type { ProjectData } from '../../../src/shared/project'
 import type { RigJson } from '../../../src/shared/rig'
+import { autoRig } from '../helpers/skeletonRig'
 import { installFakeMpm, type FakeMpm } from './fakeMpm'
 
-const RIG = JSON.parse(readFileSync(join(__dirname, '..', 'fixtures', 'rig_auto_apose.json'), 'utf8')) as RigJson
+const RIG = autoRig()
 const ci = canonicalIndex(RIG)
 const idx = (n: string): number => ci.get(n) as number
 const S = () => useStore.getState()
@@ -77,7 +76,7 @@ function frameFromPose(rig: RigJson, deltas: Deltas, contacts = { L: true, R: tr
   return { joints, rot: rotQ, contacts }
 }
 
-// A 50-frame synthetic clip on the fixture rig: the left arm rises, the right knee bends late.
+// A 50-frame synthetic clip on the standard rig: the left arm rises, the right knee bends late.
 const JOINTS = Object.keys(posedJoints(RIG, {}))
 const FRAMES: ClipFrame[] = Array.from({ length: 50 }, (_v, f) => {
   const d: Deltas = { [String(idx('upper_arm.L'))]: rot([0, -1, 0], f * 2) }
@@ -111,7 +110,7 @@ function stubFetch(): void {
   })
 }
 
-/** A project with the fixture rig built and shown. */
+/** A project with the standard rig built and shown. */
 async function riggedProject(): Promise<void> {
   await createProject('Hero', 'C:/p', yes)
   S().updateProject((d) => ({ ...d, rig: { kind: 'auto', hash: RIG.hash } }))
@@ -450,14 +449,14 @@ describe('clip list', () => {
 })
 
 describe('per-frame cost', () => {
-  it('retarget + compose of one frame takes under 5 ms on the fixture rig', () => {
+  it('retarget + compose of one frame takes under 5 ms on the standard rig', () => {
     const inputs = { mirrored: false, planted: true, edits: [rotate('spine', rot([0, 0, 1], 20)), rotate('upper_arm.R', rot([0, 1, 0], 30))] }
     for (let k = 0; k < 20; k++) composePose(RIG, inputs, FRAMES[k % FRAMES.length]) // warm up
     const n = 200
     const t0 = performance.now()
     for (let k = 0; k < n; k++) composePose(RIG, { ...inputs, mirrored: k % 2 === 1 }, FRAMES[k % FRAMES.length])
     const ms = (performance.now() - t0) / n
-    console.log(`[timing] retarget + compose, one frame: ${ms.toFixed(3)} ms (fixture rig, ${RIG.bones.length} bones)`)
+    console.log(`[timing] retarget + compose, one frame: ${ms.toFixed(3)} ms (standard rig, ${RIG.bones.length} bones)`)
     expect(ms).toBeLessThan(5)
   })
 

@@ -5,7 +5,8 @@
 
 Discovers tests/engine/test_*.py and runs every module-level function named test_*. A fresh empty scene
 is created before each test. `filter` is a substring of the module name or of "module.function".
-Tests may raise unittest.SkipTest to skip.
+Tests may raise unittest.SkipTest to skip (tests on real kits do when none is configured, see kits.py).
+The only generated fixtures are the procedural weapon props of fixtures/generate.py.
 """
 import glob
 import importlib
@@ -35,7 +36,7 @@ def ensure_fixtures(fx_dir):
     missing = [n for n in gen.DEFAULT_FIXTURES
                if not os.path.isfile(os.path.join(fx_dir, n, n + ".truth.json"))]
     if not os.path.isdir(fx_dir) or missing:
-        print("generating fixtures into %s: %s" % (fx_dir, ", ".join(missing)), flush=True)
+        print("generating weapon fixtures into %s: %s" % (fx_dir, ", ".join(missing)), flush=True)
         gen.generate(fx_dir, missing or None)
 
 

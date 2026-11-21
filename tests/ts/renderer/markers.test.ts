@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Marker helpers: confidence colours, mirrored edits, list order, hand groups; test pose; orientation.
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   CONFIDENCE_COLORS,
@@ -19,7 +17,7 @@ import { basename, dirname, projectUrl } from '../../../src/renderer/lib/paths'
 import { TEST_POSE, testPoseDeltas } from '../../../src/renderer/lib/testPose'
 import { posedJoints, restJoints } from '../../../src/shared/fk'
 import type { MarkerMap } from '../../../src/shared/project'
-import type { RigJson } from '../../../src/shared/rig'
+import { autoRig } from '../helpers/skeletonRig'
 
 const markers = (): MarkerMap => ({
   pelvis: { p: [0, 0, 1], confidence: 0.9, source: 'auto' },
@@ -87,14 +85,14 @@ describe('marker list and hands', () => {
     expect(isFingerMarker('index_tip_L')).toBe(true)
     expect(isFingerMarker('thumb_0_R')).toBe(true)
     expect(isFingerMarker('wrist_L')).toBe(false)
-    expect(isFingerMarker('index_1_L')).toBe(false) // derived, never a marker
+    expect(isFingerMarker('index_1_L')).toBe(true) // an optional knuckle point (curved fingers)
     expect(handMarkerNames(markers(), 'L').sort()).toEqual(['index_tip_L', 'wrist_L'])
     expect(handMarkerNames(markers(), 'R')).toEqual(['thumb_0_R'])
   })
 })
 
 describe('test pose', () => {
-  const rig = JSON.parse(readFileSync(join(__dirname, '..', 'fixtures', 'rig_auto_apose.json'), 'utf8')) as RigJson
+  const rig = autoRig()
 
   it('raises both arms 45 degrees and bends the left knee', () => {
     const deltas = testPoseDeltas(rig)
@@ -105,9 +103,14 @@ describe('test pose', () => {
       // the hands go up and out, symmetrically
       expect(posed[`wrist_${s}`].z).toBeGreaterThan(rest[`wrist_${s}`].z + 0.1)
       expect(Math.abs(posed[`wrist_${s}`].x)).toBeGreaterThan(Math.abs(rest[`wrist_${s}`].x))
-      const angle = (a: string, b: string, P: typeof rest) => P[b].clone().sub(P[a]).normalize()
-      const deg = (angle(`shoulder_${s}`, `elbow_${s}`, rest).angleTo(angle(`shoulder_${s}`, `elbow_${s}`, posed)) * 180) / Math.PI
+      // the upper arm swings 45 degrees about the front-back (Y) axis: measured in the XZ plane, because
+      // an upper arm need not hang exactly in that plane (the standard one has its elbow a little back)
+      const upperArm = (P: typeof rest) => P[`elbow_${s}`].clone().sub(P[`shoulder_${s}`])
+      const inXZ = (v: typeof rest.pelvis) => v.clone().setY(0)
+      const deg = (inXZ(upperArm(rest)).angleTo(inXZ(upperArm(posed))) * 180) / Math.PI
       expect(deg).toBeCloseTo(45, 3)
+      expect(upperArm(posed).y).toBeCloseTo(upperArm(rest).y, 9)
+      expect(upperArm(posed).length()).toBeCloseTo(upperArm(rest).length(), 9)
     }
     expect(posed.wrist_L.x).toBeCloseTo(-posed.wrist_R.x, 6)
     // left knee forward (-Y), left ankle raised; the right leg stays at rest

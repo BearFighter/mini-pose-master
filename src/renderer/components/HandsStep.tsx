@@ -161,8 +161,19 @@ function HandPanel({ side }: { side: 'L' | 'R' }) {
           {FINGERS.map((f) => {
             const r = report.fingers[f]
             return (
-              <li key={f} className={r.touching ? 'ok' : r.locked ? 'muted' : 'warn'}>
+              <li key={f} className={r.touching ? 'ok' : r.locked ? 'muted' : 'warn'} title={`d = ${(r.minDistance_m * 1000).toFixed(1)} mm on the model`}>
                 {f}: {r.locked ? 'kept' : r.touching ? 'touching' : r.maxed ? 'not touching (max flex)' : 'not touching'}
+                {!r.locked && Number.isFinite(r.minDistance_m) && (
+                  <span className="muted">
+                    {' '}
+                    ({r.minDistance_m <= 0 ? 'overlap' : 'gap'} {Math.abs(r.minDistance_m * report.unitMm).toFixed(2)} mm at print scale)
+                  </span>
+                )}
+                {r.reopened && r.startDistance_m < 0 ? (
+                  <span className="warn-text"> · inside the weapon even when open: move the weapon or this finger</span>
+                ) : (
+                  r.reopened && <span className="muted"> · reopened</span>
+                )}
               </li>
             )
           })}

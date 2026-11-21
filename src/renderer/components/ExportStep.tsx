@@ -78,6 +78,10 @@ function Settings({ bake }: { bake: BakeSettings }) {
         <NumberField label="Min wall mm" value={bake.min_wall_mm} min={0.1} max={3} step={0.05} onChange={(v) => update({ min_wall_mm: v })} />
         <NumberField label="Max triangles" value={bake.max_tris} min={10_000} max={10_000_000} step={10_000} onChange={(v) => update({ max_tris: Math.round(v) })} />
       </div>
+      <label className="toggle-line" title="Fingers, blades and other parts thinner than the minimum wall are made thicker until they reach it.">
+        <input type="checkbox" checked={bake.thicken_thin !== false} onChange={(e) => update({ thicken_thin: e.target.checked })} /> Thicken parts
+        thinner than the minimum wall
+      </label>
       <label className="toggle-line">
         <input type="checkbox" checked={bake.weapons_separate} onChange={(e) => update({ weapons_separate: e.target.checked })} /> Print all weapons
         separately
@@ -103,7 +107,10 @@ function Result() {
       </p>
       <dl className="summary">
         <dt>Thinner than {r.min_thickness_mm} mm</dt>
-        <dd className={r.thin_area_pct > 5 ? 'warn' : ''}>{r.thin_area_pct}% of the surface</dd>
+        <dd className={r.thin_area_pct > 5 ? 'warn' : ''}>
+          {r.thin_area_pct}% of the surface
+          {r.thin_area_pct_before !== undefined && r.thin_area_pct_before !== r.thin_area_pct ? ` (was ${r.thin_area_pct_before}% before thickening)` : ''}
+        </dd>
         <dt>Pieces</dt>
         <dd className={r.pieces > 1 ? 'warn' : ''}>{r.pieces}</dd>
         <dt>Follow check</dt>

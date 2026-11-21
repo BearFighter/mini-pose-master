@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // WP9 flows against a fake window.mpm: one history for pose, hands and weapons; project save/load of
 // hands and weapons; the weapon and hand flows; auto-grip through the store; the bake job call.
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { CylinderGeometry, Group, Mesh, Vector3 } from 'three'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { projectUrl } from '../../../src/renderer/lib/paths'
@@ -19,17 +17,18 @@ import {
   setPrintSeparately,
   setSupport,
   setTwoHanded,
-  setWeaponScale
+  setWeaponScale,
+  setWeaponUnits
 } from '../../../src/renderer/store/weaponActions'
 import { setWeaponScene } from '../../../src/renderer/viewer/weaponView'
 import type { ConvertWeaponResult } from '../../../src/shared/jobResults'
 import { FINGERS } from '../../../src/shared/handPose'
 import type { ProjectData } from '../../../src/shared/project'
-import type { RigJson } from '../../../src/shared/rig'
 import { attachFrame, weaponMatrix } from '../../../src/shared/weaponPose'
+import { autoRig } from '../helpers/skeletonRig'
 import { installFakeMpm, type FakeMpm } from './fakeMpm'
 
-const RIG = JSON.parse(readFileSync(join(__dirname, '..', 'fixtures', 'rig_auto_apose.json'), 'utf8')) as RigJson
+const RIG = autoRig()
 const S = () => useStore.getState()
 const yes = () => true
 
@@ -147,7 +146,15 @@ describe('weapon flows', () => {
     await riggedProject()
     const w = await addWeapon('D:/weapons/handle.fbx')
     expect(fake.runs.at(-1)).toMatchObject({ type: 'convert_weapon', args: { file: 'weapons/x/x.glb' } })
-    expect(w).toMatchObject({ id: 'w1', file: 'weapons/handle.glb', attach_bone: 'grip.R', merge: true, support: { enabled: false, side: 'L' } })
+    expect(w).toMatchObject({
+      id: 'w1',
+      file: 'weapons/handle.glb',
+      source: 'weapons/x/x.glb',
+      unit_scale: 1,
+      attach_bone: 'grip.R',
+      merge: true,
+      support: { enabled: false, side: 'L' }
+    })
     expect(S().weaponSelection).toBe('w1')
     expect(S().weaponInfo.w1.principal_axis).toEqual([0, 0, 1])
     // the bbox centre sits on the socket
@@ -184,6 +191,35 @@ describe('weapon flows', () => {
     expect(removeWeapon('w1', () => false)).toBe(false)
     expect(removeWeapon('w1', yes)).toBe(true)
     expect(S().weapons).toEqual([])
+  })
+})
+
+describe('weapon units', () => {
+  it('Units converts the recorded source again, also after the project was reopened', async () => {
+    await riggedProject()
+    await addWeapon('D:/weapons/handle.fbx')
+    setGripPoint('w1', [0, 0, 0.1])
+    setSupport('w1', { point: [0, 0, -0.06], normal: [-1, 0, 0], axis: [0, 0, 1] })
+    await saveProject()
+    closeProject(yes)
+    await openProject('C:/p/Hero', yes)
+    expect(S().weaponInfo.w1).toBeUndefined() // nothing from the session that added it
+    const before = S().weapons[0]
+    fake.script('convert_weapon', { events: [{ kind: 'result', payload: { ...CONVERTED, unit_scale_used: 0.01 } }] })
+    await setWeaponUnits('w1', 0.01)
+    expect(fake.runs.at(-1)).toMatchObject({ type: 'convert_weapon', args: { file: 'weapons/x/x.glb', unit_scale: 0.01, out: 'weapons/handle.glb' } })
+    const after = S().weapons[0]
+    expect(after.unit_scale).toBe(0.01)
+    after.offset.t.forEach((v, k) => expect(v).toBeCloseTo(before.offset.t[k] * 0.01, 12))
+    after.support!.point.forEach((v, k) => expect(v).toBeCloseTo(before.support!.point[k] * 0.01, 12))
+    expect(S().weaponVersion.w1).toBeGreaterThan(0)
+  })
+
+  it('an older entry without source keeps Units unavailable', async () => {
+    await riggedProject()
+    await addWeapon('D:/weapons/handle.fbx')
+    S().setWeapons(S().weapons.map(({ source: _s, unit_scale: _u, ...w }) => w))
+    await expect(setWeaponUnits('w1', 0.01)).rejects.toThrow(/older version/)
   })
 })
 

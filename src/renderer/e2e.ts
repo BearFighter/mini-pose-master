@@ -27,11 +27,11 @@ import { vecB2T } from '../shared/coords'
 import { canonicalIndex, posedJoints } from '../shared/fk'
 import { attachFrame } from '../shared/weaponPose'
 import type { BakeJobResult } from '../shared/jobResults'
-import type { WeaponEntry } from '../shared/project'
+import type { PartsChoice, WeaponEntry } from '../shared/project'
 import { runBake } from './store/exportActions'
 import { choosePreset, runAutoGrip } from './store/handActions'
 import { clearEdits, clearSource, commitReach } from './store/poseActions'
-import { addWeapon, setGripPoint, setSupport } from './store/weaponActions'
+import { addPropWeapon, addWeapon, setGripPoint, setSupport } from './store/weaponActions'
 import type { WeaponTool } from './store/weapons'
 
 /** Vertex indices (= _ORIG_INDEX) spread evenly over the rig's meshes, `count` in all. */
@@ -71,7 +71,9 @@ export function testState() {
           height_m: s.importInfo.height_m,
           has_armature: s.importInfo.has_armature,
           materials: s.importInfo.materials.length,
-          warnings: s.importInfo.warnings
+          warnings: s.importInfo.warnings,
+          all_objects: s.importInfo.all_objects ?? null,
+          props: s.importInfo.props ?? null
         }
       : null,
     markers: s.markers ? Object.keys(s.markers).length : 0,
@@ -109,7 +111,8 @@ export function testState() {
 export interface MpmTestHook {
   newProject(dir: string, name?: string): Promise<ReturnType<typeof testState>>
   openProject(path: string): Promise<ReturnType<typeof testState>>
-  importModel(path: string): Promise<ReturnType<typeof testState>>
+  /** `objects`: the parts choice `{object name: part of the character}` sent to the import job. */
+  importModel(path: string, objects?: PartsChoice): Promise<ReturnType<typeof testState>>
   findJoints(): Promise<ReturnType<typeof testState>>
   buildRig(): Promise<ReturnType<typeof testState>>
   testPose(on: boolean): ReturnType<typeof testState>
@@ -132,6 +135,8 @@ export interface MpmTestHook {
   /** Where the gizmo is on screen and which axis the pointer hovers. */
   gizmo(): ReturnType<typeof gizmoInfo>
   addWeapon(file: string): Promise<WeaponEntry>
+  /** "Add as weapon" for a prop the import left out; `file` is its `props/<name>.glb`. */
+  addPropWeapon(file: string): Promise<WeaponEntry>
   setGripPoint(id: string, point: Vec3): ReturnType<typeof testState>
   setSupport(id: string, support: { point: Vec3; normal: Vec3; axis: Vec3 }): ReturnType<typeof testState>
   selectWeapon(id: string | null, tool?: WeaponTool): ReturnType<typeof testState>
@@ -139,7 +144,11 @@ export interface MpmTestHook {
   /** "Rest pose" + "Clear edits". */
   clearPose(): ReturnType<typeof testState>
   preset(side: 'L' | 'R', name: string): ReturnType<typeof testState>
-  autoGrip(side: 'L' | 'R'): Promise<{ fingers: Record<string, { touching: boolean; maxed: boolean; minDistance_m: number; locked: boolean }>; ms: number }>
+  autoGrip(side: 'L' | 'R'): Promise<{
+    fingers: Record<string, { touching: boolean; maxed: boolean; minDistance_m: number; locked: boolean; reopened: boolean; startDistance_m: number; stepTravel_m: number }>
+    ms: number
+    unitMm: number
+  }>
   /** Per weapon id, how far the support hand falls short (metres). */
   supportShort(): Record<string, number>
   /** rig.json index of a canonical bone. */
@@ -156,7 +165,7 @@ export interface MpmTestHook {
 
 export function installTestHook(): void {
   const hook: MpmTestHook = {
-    newProject: async (dir, name = 'E2E Fixture') => {
+    newProject: async (dir, name = 'E2E Kit') => {
       await createProject(name, dir, () => true)
       return testState()
     },
@@ -164,9 +173,9 @@ export function installTestHook(): void {
       await openProject(path, () => true)
       return testState()
     },
-    importModel: async (path) => {
+    importModel: async (path, objects) => {
       useStore.getState().setStep('import')
-      await importModel(path)
+      await importModel(path, objects)
       return testState()
     },
     findJoints: async () => {
@@ -227,6 +236,7 @@ export function installTestHook(): void {
     },
     poseState: () => currentPoseState(),
     addWeapon: (file) => addWeapon(file),
+    addPropWeapon: (file) => addPropWeapon(file),
     setGripPoint: (id, point) => {
       setGripPoint(id, point)
       return testState()
@@ -255,7 +265,8 @@ export function installTestHook(): void {
     },
     autoGrip: async (side) => {
       const r = await runAutoGrip(side)
-      return { fingers: r.fingers, ms: useStore.getState().gripReport[side]?.ms ?? 0 }
+      const report = useStore.getState().gripReport[side]
+      return { fingers: r.fingers, ms: report?.ms ?? 0, unitMm: report?.unitMm ?? 0 }
     },
     supportShort: () => currentPose(false)?.supportShort ?? {},
     boneIndex: (canonical) => {

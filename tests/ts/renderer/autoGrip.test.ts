@@ -1,29 +1,33 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Auto-grip (contracts section 11) on the fixture rig: a synthetic handle, and the fixture sword placed
-// in the right hand by its truth grip.
+// Auto-grip (contracts section 11) on the standard skeleton (tests/ts/helpers/skeletonRig.ts, finger radii
+// from its table): a synthetic handle, and the generated sword placed in the right hand by its truth grip
+// (skipped when fixtures/out/sword is absent).
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Line3, Vector3 } from 'three'
 import { ExtendedTriangle } from 'three-mesh-bvh'
 import { describe, expect, it } from 'vitest'
-import { autoGrip, buildBVH, capsuleDistance, fingerCapsules, MAX_FLEX, segmentDistance, type AutoGripResult } from '../../../src/renderer/lib/autoGrip'
+import { autoGrip, buildBVH, capsuleDistance, fingerCapsules, MAX_FLEX, penetrationLimit, segmentDistance, stepTravel, type AutoGripResult } from '../../../src/renderer/lib/autoGrip'
 import { handFromPreset, presetByName } from '../../../src/renderer/lib/hands'
-import { gripRotation, gripTolerance, translationFor, weaponTriangles } from '../../../src/renderer/lib/weapons'
+import { gripRotation, translationFor, unitMm, weaponTriangles } from '../../../src/renderer/lib/weapons'
 import { DEFAULT_BAKE } from '../../../src/renderer/store/bake'
 import { composePose } from '../../../src/shared/composePose'
 import type { Deltas } from '../../../src/shared/fk'
 import type { HandPose } from '../../../src/shared/handPose'
 import { applyHandPose, FINGERS } from '../../../src/shared/handPose'
-import type { RigJson } from '../../../src/shared/rig'
 import { attachFrame, weaponMatrix } from '../../../src/shared/weaponPose'
+import { autoRig } from '../helpers/skeletonRig'
 import { loadGlbMeshes } from './glbGeometry'
 
-const RIG = JSON.parse(readFileSync(join(__dirname, '..', 'fixtures', 'rig_auto_apose.json'), 'utf8')) as RigJson
+const RIG = autoRig()
 const SWORD = join(__dirname, '..', '..', '..', 'fixtures', 'out', 'sword', 'sword.glb')
-const TOL = gripTolerance(RIG, DEFAULT_BAKE) // 0.2 mm at 40 mm height
+const UNIT = unitMm(RIG, DEFAULT_BAKE) // mm per model metre at 40 mm height
+const PEN = penetrationLimit(UNIT) // 0.05 mm at print scale
 // The right hand in front of the body (as in weaponPose.test.ts), no hand pose yet.
 const BASE: Deltas = composePose(RIG, { mirrored: false, planted: false, edits: [{ kind: 'reach', side: 'R', target: [-0.03, -0.3, 1.2] }] }, null).deltas
 const SWORD_PRESET = handFromPreset(presetByName('sword')!)
+const FIST_PRESET = handFromPreset(presetByName('fist')!)
+const EPS = 1e-9
 
 /** A closed cylinder (radius r, length len) along the grip socket's axis, centred on the socket. */
 function handle(r: number, len: number, segments = 32): Float32Array {
@@ -45,35 +49,53 @@ function handle(r: number, len: number, segments = 32): Float32Array {
   return new Float32Array(out)
 }
 
-/** The section 11 checks shared by both cases. */
+/** The section 11 checks shared by every case. */
 function checkGrip(result: AutoGripResult, start: HandPose, locked: string[], triangles: Float32Array): void {
   const bvh = buildBVH(triangles)
   const deltas = applyHandPose(RIG, BASE, 'R', result.pose)
   for (const f of FINGERS) {
     const caps = fingerCapsules(RIG, deltas, 'R', f)
     const ds = caps.map((c) => capsuleDistance(bvh, c))
-    // no deep penetration
-    expect(Math.min(...ds), `${f} penetrates`).toBeGreaterThanOrEqual(-TOL)
     const r = result.fingers[f]
     if (locked.includes(f)) {
       expect(result.pose.fingers[f]).toEqual(start.fingers[f])
       expect(r.locked).toBe(true)
       continue
     }
-    expect(r.touching || r.maxed, `${f}: touching or at max flex`).toBe(true)
-    if (r.touching) expect(r.minDistance_m).toBeLessThanOrEqual(TOL)
     expect(r.minDistance_m).toBeCloseTo(Math.min(...ds), 9)
-    // spread and roll stay from the preset; flex only grows, in 2 degree steps, up to the maximum
+    expect(r.stepTravel_m).toBeCloseTo(stepTravel(RIG, 'R', f), 12)
+    // touching, overlapping by at most one step's travel (or by what it already overlapped where the closing
+    // started: the preset, or flex 0 when reopened); or not touching at max flex
+    if (r.touching) {
+      expect(r.minDistance_m).toBeLessThanOrEqual(0)
+      const bound = Math.min(-r.stepTravel_m, r.startDistance_m)
+      expect(r.minDistance_m, `${f} overlaps deeper than one step`).toBeGreaterThanOrEqual(bound - EPS)
+      if (r.startDistance_m > 0) expect(r.minDistance_m).toBeGreaterThanOrEqual(-r.stepTravel_m - EPS)
+    } else expect(r.maxed, `${f}: touching or at max flex`).toBe(true)
+    // a finger only starts over from 0 when the preset was deeper than pen_m
+    if (r.reopened) expect(Math.min(...fingerCapsules(RIG, applyHandPose(RIG, BASE, 'R', start), 'R', f).map((c) => capsuleDistance(bvh, c)))).toBeLessThan(-PEN)
+    // spread and roll stay from the preset; flex grows from the preset (or from 0 when reopened) up to the maximum
     expect(result.pose.fingers[f].spread).toBe(start.fingers[f].spread)
     expect(result.pose.fingers[f].roll).toBe(start.fingers[f].roll)
+    const from = r.reopened ? [0, 0, 0] : start.fingers[f].flex
     const max = MAX_FLEX[f === 'thumb' ? 'thumb' : 'finger']
     result.pose.fingers[f].flex.forEach((v, k) => {
-      expect(v).toBeGreaterThanOrEqual(start.fingers[f].flex[k])
-      expect(v).toBeLessThanOrEqual(Math.max(max[k], start.fingers[f].flex[k]))
-      // stop rule: every joint is at its maximum, or its capsule chain (that bone and the distal ones) is within tol_m
-      expect(v >= max[k] || Math.min(...ds.slice(k)) <= TOL, `${f} joint ${k + 1} stopped early`).toBe(true)
+      expect(v).toBeGreaterThanOrEqual(from[k])
+      expect(v).toBeLessThanOrEqual(Math.max(max[k], from[k]))
+      // stop rule: every joint is at its maximum, or its chain (that bone and the distal ones) touches
+      expect(v >= max[k] || Math.min(...ds.slice(k)) <= 0, `${f} joint ${k + 1} stopped early`).toBe(true)
     })
   }
+}
+
+/** The per-finger numbers, in mm on the model and at print scale. */
+function describeGrip(r: AutoGripResult): string {
+  return FINGERS.map((f) => {
+    const g = r.fingers[f]
+    const state = g.touching ? 'touching' : g.maxed ? 'max flex' : '?'
+    const reopened = g.reopened ? ` (reopened, d at flex 0 = ${(g.startDistance_m * 1000).toFixed(2)}mm)` : ''
+    return `${f} ${state}${reopened} d=${(g.minDistance_m * 1000).toFixed(2)}mm model / ${(g.minDistance_m * UNIT).toFixed(3)}mm print, step ${(g.stepTravel_m * 1000).toFixed(2)}mm`
+  }).join('; ')
 }
 
 describe('segment distance', () => {
@@ -105,22 +127,54 @@ describe('auto-grip', () => {
     const tris = handle(0.014, 0.3)
     const bvh = buildBVH(tris)
     const t0 = performance.now()
-    const free = autoGrip({ rig: RIG, base: BASE, side: 'R', start: SWORD_PRESET, locked: [], bvh, tolM: TOL })
+    const free = autoGrip({ rig: RIG, base: BASE, side: 'R', start: SWORD_PRESET, locked: [], bvh, unitMm: UNIT })
     const ms = performance.now() - t0
     console.log(`[timing] auto-grip (handle, ${tris.length / 9} triangles): ${ms.toFixed(1)} ms`)
+    console.log(`[auto-grip] handle: ${describeGrip(free)}`)
     checkGrip(free, SWORD_PRESET, [], tris)
     expect(FINGERS.filter((f) => free.fingers[f].touching).length).toBeGreaterThanOrEqual(3)
-    const kept = autoGrip({ rig: RIG, base: BASE, side: 'R', start: SWORD_PRESET, locked: ['index'], bvh, tolM: TOL })
+    const kept = autoGrip({ rig: RIG, base: BASE, side: 'R', start: SWORD_PRESET, locked: ['index'], bvh, unitMm: UNIT })
     checkGrip(kept, SWORD_PRESET, ['index'], tris)
   })
 
-  it('leaves a finger already within tol_m alone and stops at the maximum without a weapon nearby', () => {
+  it('reopens a finger whose preset starts deeper than pen_m, then closes it to a touch', () => {
+    const tris = handle(0.012, 0.3)
+    const bvh = buildBVH(tris)
+    // the fist preset curls the fingers right through a thin handle
+    const deltas = applyHandPose(RIG, BASE, 'R', FIST_PRESET)
+    const startDepth = Math.min(...fingerCapsules(RIG, deltas, 'R', 'middle').map((c) => capsuleDistance(bvh, c)))
+    expect(startDepth).toBeLessThan(-PEN)
+    const r = autoGrip({ rig: RIG, base: BASE, side: 'R', start: FIST_PRESET, locked: [], bvh, unitMm: UNIT })
+    console.log(`[auto-grip] fist on a thin handle: ${describeGrip(r)}`)
+    expect(r.fingers.middle.reopened).toBe(true)
+    expect(r.fingers.middle.touching).toBe(true)
+    expect(r.fingers.middle.startDistance_m).toBeGreaterThan(0) // clear when open...
+    expect(r.fingers.middle.minDistance_m).toBeGreaterThanOrEqual(-r.fingers.middle.stepTravel_m) // ...so within one step
+    checkGrip(r, FIST_PRESET, [], tris)
+    // a locked finger is never reopened
+    const kept = autoGrip({ rig: RIG, base: BASE, side: 'R', start: FIST_PRESET, locked: ['middle'], bvh, unitMm: UNIT })
+    expect(kept.fingers.middle.reopened).toBe(false)
+    expect(kept.pose.fingers.middle).toEqual(FIST_PRESET.fingers.middle)
+  })
+
+  it('stops at the maximum without a weapon nearby', () => {
     const far = handle(0.014, 0.3).map((v, i) => v + (i % 3 === 0 ? 5 : 0)) // the handle 5 m away
-    const r = autoGrip({ rig: RIG, base: BASE, side: 'R', start: SWORD_PRESET, locked: [], bvh: buildBVH(far), tolM: TOL })
+    const r = autoGrip({ rig: RIG, base: BASE, side: 'R', start: SWORD_PRESET, locked: [], bvh: buildBVH(far), unitMm: UNIT })
     for (const f of FINGERS) {
       expect(r.fingers[f].maxed).toBe(true)
+      expect(r.fingers[f].reopened).toBe(false)
       expect(r.pose.fingers[f].flex).toEqual(MAX_FLEX[f === 'thumb' ? 'thumb' : 'finger'].map((m, k) => Math.max(m, SWORD_PRESET.fingers[f].flex[k])))
     }
+  })
+
+  it('pen_m is 0.05 mm at print scale; a step travels the finger length times 2 degrees', () => {
+    expect(PEN).toBeCloseTo(0.05 / (40 / RIG.height_m), 12)
+    let len = 0
+    for (const k of [1, 2, 3]) {
+      const b = RIG.bones.find((x) => x.canonical === `index.0${k}.R`)!
+      len += Math.hypot(b.tail[0] - b.head[0], b.tail[1] - b.head[1], b.tail[2] - b.head[2])
+    }
+    expect(stepTravel(RIG, 'R', 'index')).toBeCloseTo((len * 2 * Math.PI) / 180, 9)
   })
 })
 
@@ -137,10 +191,10 @@ describe.skipIf(!existsSync(SWORD))('auto-grip on the fixture sword', () => {
     const tris = weaponTriangles(loadGlbMeshes(SWORD), Mb)
     const bvh = buildBVH(tris)
     const t0 = performance.now()
-    const r = autoGrip({ rig: RIG, base: BASE, side: 'R', start: SWORD_PRESET, locked: [], bvh, tolM: TOL })
+    const r = autoGrip({ rig: RIG, base: BASE, side: 'R', start: SWORD_PRESET, locked: [], bvh, unitMm: UNIT })
     const ms = performance.now() - t0
     console.log(`[timing] auto-grip (fixture sword, ${tris.length / 9} triangles): ${ms.toFixed(1)} ms`)
-    console.log(`[auto-grip] sword: ${FINGERS.map((f) => `${f} ${r.fingers[f].touching ? 'touching' : r.fingers[f].maxed ? 'max' : '?'} ${(r.fingers[f].minDistance_m * 1000).toFixed(1)}mm`).join(', ')}`)
+    console.log(`[auto-grip] sword: ${describeGrip(r)}`)
     checkGrip(r, SWORD_PRESET, [], tris)
   })
 })

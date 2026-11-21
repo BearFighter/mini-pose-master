@@ -94,6 +94,8 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    // Test runs stay off the user's screen and never take focus; MPM_E2E_SHOW=1 shows the window.
+    show: !(E2E.enabled && process.env.MPM_E2E_SHOW !== '1'),
     webPreferences: {
       contextIsolation: true,
       sandbox: true,

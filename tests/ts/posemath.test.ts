@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// WP8a: retarget / hand pose / IK / plant feet / mirror / clip format, on rigs derived from the
-// original procedural fixtures (tests/ts/fixtures).
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+// WP8a: retarget / hand pose / IK / plant feet / mirror / clip format, on the standard skeleton built
+// in code (tests/ts/helpers/skeletonRig.ts): the auto rig in A- and T-pose, and an imported-style rig.
 import { describe, expect, it } from 'vitest'
 import { Quaternion, Vector3 } from 'three'
 import type { ClipFrame } from '../../src/shared/clip'
@@ -18,11 +16,18 @@ import { makePoseState } from '../../src/shared/poseState'
 import { retargetFrame } from '../../src/shared/retarget'
 import type { RigJson } from '../../src/shared/rig'
 import { BONES } from '../../src/shared/skeleton'
+import { autoRig, importedRig, standardMarkers } from './helpers/skeletonRig'
 
-const load = (n: string): RigJson =>
-  JSON.parse(readFileSync(join(__dirname, 'fixtures', n), 'utf8')) as RigJson
-const AUTO = load('rig_auto_apose.json')
-const MIXAMO = load('rig_imported_mixamo.json')
+const AUTO = autoRig()
+const AUTO_T = autoRig({ tpose: true })
+// Mixamo names, extra unmapped bones, arbitrary rolls, another bone order; T-pose
+const MIXAMO = importedRig()
+// the same rig on the A-pose joints of AUTO
+const MIXAMO_A = importedRig({ tpose: false })
+// other proportions: 15 % wider (longer arms in the T-pose) and 10 % shorter
+const STOCKY = importedRig({
+  markers: Object.fromEntries(Object.entries(standardMarkers({ tpose: true })).map(([k, p]) => [k, [p[0] * 1.15, p[1], p[2] * 0.9]]))
+})
 
 function rng(seed: number): () => number {
   let a = seed >>> 0
@@ -95,17 +100,54 @@ describe('retarget (contracts section 6)', () => {
     })
   }
 
-  it('copies directions onto an imported rig with different proportions', () => {
-    const frame = frameFromPose(AUTO, randomPose(AUTO, 9))
-    const got = retargetFrame(MIXAMO, frame)
-    const ci = canonicalIndex(MIXAMO)
-    const pg = posedBones(MIXAMO, got)
-    for (const b of BONES) {
-      const i = ci.get(b.name)
-      if (i === undefined || b.name.startsWith('grip.')) continue
-      const want = v3(frame.joints[b.tail]).sub(v3(frame.joints[b.head]))
-      expect(angle(boneDir(pg, i), want), b.name).toBeLessThan(0.05)
+  for (const [label, rig] of [['in another rest pose (T)', MIXAMO], ['with different proportions', STOCKY]] as const) {
+    it(`copies directions onto an imported rig ${label}`, () => {
+      const frame = frameFromPose(AUTO, randomPose(AUTO, 9))
+      const got = retargetFrame(rig, frame)
+      const ci = canonicalIndex(rig)
+      const pg = posedBones(rig, got)
+      for (const b of BONES) {
+        const i = ci.get(b.name)
+        if (i === undefined || b.name.startsWith('grip.')) continue
+        const want = v3(frame.joints[b.tail]).sub(v3(frame.joints[b.head]))
+        expect(angle(boneDir(pg, i), want), b.name).toBeLessThan(0.05)
+      }
+    })
+  }
+})
+
+describe('imported rigs (contracts sections 5 and 8)', () => {
+  it('at rest the posed joints are rig.json joints', () => {
+    for (const rig of [AUTO, AUTO_T, MIXAMO, MIXAMO_A, STOCKY]) {
+      const J = posedJoints(rig, {})
+      expect(Object.keys(J).length).toBe(68)
+      for (const [k, p] of Object.entries(rig.joints)) expect(J[k].distanceTo(v3(p)), `${rig.kind} ${k}`).toBeLessThan(1e-6)
     }
+  })
+
+  it('unmapped bones follow their parent', () => {
+    const res = resolveDeltas(MIXAMO, retargetFrame(MIXAMO, frameFromPose(AUTO, randomPose(AUTO, 11))))
+    const unmapped = MIXAMO.bones.filter((b) => b.canonical === null)
+    expect(unmapped.length).toBeGreaterThan(10)
+    for (const b of unmapped) expect(res[String(b.index)], b.name).toEqual(res[String(b.parent)])
+    // the extra spine bone sits inside the chain: the chest hangs off it
+    const spine1 = MIXAMO.bones.find((b) => b.name.endsWith(':Spine1'))!
+    expect(MIXAMO.bones[canonicalIndex(MIXAMO).get('chest')!].parent).toBe(spine1.index)
+    expect(MIXAMO.bones[spine1.parent].canonical).toBe('spine')
+  })
+
+  it('poses like the auto rig on the same joints: names, order, rolls and extra bones do not matter', () => {
+    const truth = randomPose(AUTO, 17)
+    const ca = canonicalIndex(AUTO)
+    const cm = canonicalIndex(MIXAMO_A)
+    // the same canonical deltas, keyed by each rig's own bone indices
+    const onImported: Deltas = {}
+    for (const [name, i] of ca) onImported[String(cm.get(name)!)] = truth[String(i)]
+    expect([...cm.keys()].sort()).toEqual([...ca.keys()].sort())
+    expect([...cm.values()]).not.toEqual([...cm.keys()].map((n) => ca.get(n)))
+    const A = posedJoints(AUTO, truth, [0.03, -0.02, 0.05])
+    const M = posedJoints(MIXAMO_A, onImported, [0.03, -0.02, 0.05])
+    for (const k of Object.keys(A)) expect(M[k].distanceTo(A[k]), k).toBeLessThan(1e-6)
   })
 })
 
@@ -124,9 +166,9 @@ const pose = (f: Partial<HandPose['fingers']>): HandPose => ({
 })
 
 describe('hand pose (contracts section 10)', () => {
-  for (const rig of [AUTO, MIXAMO]) {
+  for (const [label, rig] of [['auto A-pose', AUTO], ['auto T-pose', AUTO_T], ['imported T-pose', MIXAMO]] as const) {
     for (const s of ['L', 'R'] as const) {
-      it(`${rig.kind} ${s}: flex curls toward the palm, +spread goes toward the thumb`, () => {
+      it(`${label} ${s}: flex curls toward the palm, +spread goes toward the thumb`, () => {
         const ci = canonicalIndex(rig)
         const i = ci.get(`index.01.${s}`)!
         const restD = v3(rig.bones[i].tail).sub(v3(rig.bones[i].head)).normalize()
@@ -183,6 +225,15 @@ describe('IK and plant feet (contracts section 12)', () => {
 })
 
 describe('mirror (contracts section 5)', () => {
+  it('unmapped bones (twists, ends, props) follow their mirrored parent', () => {
+    const rig = MIXAMO
+    const d = { [String(canonicalIndex(rig).get('upper_arm.R'))]: wxyz(new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), 1)) }
+    const m = resolveDeltas(rig, mirrorPose(rig, d, [0, 0, 0]).deltas)
+    for (const b of rig.bones)
+      if (b.canonical === null && b.parent >= 0)
+        expect(quatAngleDeg(q4(m[String(b.index)]), q4(m[String(b.parent)])), b.name).toBeLessThan(1e-6)
+  })
+
   it('mirroring twice is the identity and mirrors joint positions', () => {
     const d = randomPose(AUTO, 21)
     const m1 = mirrorPose(AUTO, d, [0.02, 0.01, -0.03])
@@ -197,7 +248,7 @@ describe('mirror (contracts section 5)', () => {
     for (const k of Object.keys(J)) {
       const a = J[k]
       const b = M[swap(k)]
-      // the auto fixture rig is symmetric to ~1e-6 m
+      // the standard rig is symmetric in x
       expect(Math.hypot(a.x + b.x, a.y - b.y, a.z - b.z), k).toBeLessThan(1e-4)
     }
   })
