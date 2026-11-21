@@ -2,15 +2,16 @@
 // ui slice: the current step, the selection, camera focus requests, dialogs.
 import type { SliceCreator } from './types'
 
-export const STEPS = ['import', 'rig', 'pose', 'hands', 'weapons', 'export'] as const
+/** Weapons and hands come before posing: the hand shape is known once a weapon is in it. */
+export const STEPS = ['import', 'rig', 'weapons', 'hands', 'pose', 'export'] as const
 export type Step = (typeof STEPS)[number]
 
 export const STEP_LABELS: Record<Step, string> = {
   import: 'Import',
   rig: 'Rig',
-  pose: 'Pose',
-  hands: 'Hands',
   weapons: 'Weapons',
+  hands: 'Hands',
+  pose: 'Pose',
   export: 'Export'
 }
 

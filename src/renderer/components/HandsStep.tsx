@@ -10,9 +10,10 @@ import { cloneHand, FLEX_RANGE, HAND_PRESETS, handFromPreset, presetByName, ROLL
 import { useStore } from '../store'
 import { fire } from '../store/flow'
 import { choosePreset, commitHand, copyHandSide, previewHand, resetHand, runAutoGrip, setFingerKeep, weaponsForHand } from '../store/handActions'
-import { currentPose, redoPose, undoPose } from '../store/poseActions'
+import { displayPose, redoPose, undoPose } from '../store/poseActions'
 import { posedJoints } from '../../shared/fk'
-import { Section } from './common'
+import { IconHand, IconRedo, IconRig, IconUndo, IconZoom } from './icons'
+import { Section, StepHeader, EmptyState } from './common'
 
 /** A slider that previews while dragged and commits once on release. */
 function AngleSlider({
@@ -43,6 +44,7 @@ function AngleSlider({
         max={range[1]}
         step={1}
         value={shown}
+        style={{ '--fill': `${((shown - range[0]) / Math.max(1e-9, range[1] - range[0])) * 100}%` } as React.CSSProperties}
         onChange={(e) => {
           const v = Number(e.target.value)
           setLive(v)
@@ -125,7 +127,7 @@ function HandPanel({ side }: { side: 'L' | 'R' }) {
   const shown = hand ?? handFromPreset(presetByName('relaxed') ?? HAND_PRESETS[0])
   const canGrip = weaponsForHand(weapons, side).length > 0
   const zoom = () => {
-    const pose = currentPose(false)
+    const pose = displayPose(false)
     if (!pose) return
     const j = posedJoints(rig, pose.deltas)[`middle_0_${side}`] ?? posedJoints(rig, pose.deltas)[`wrist_${side}`]
     if (!j) return
@@ -144,11 +146,13 @@ function HandPanel({ side }: { side: 'L' | 'R' }) {
           ))}
         </select>
         <button onClick={zoom} title="Zoom to this hand">
+          <IconZoom size={14} />
           Zoom
         </button>
       </div>
       <div className="button-row">
         <button className="primary" disabled={!canGrip || busy} onClick={() => fire(runAutoGrip(side))} title={canGrip ? '' : 'Attach a weapon to this hand first'}>
+          <IconHand size={14} />
           Auto-grip
         </button>
         <button onClick={() => copyHandSide(side)}>{side === 'L' ? 'Copy hand L→R' : 'Copy hand R→L'}</button>
@@ -200,23 +204,23 @@ export function HandsStep() {
   if (!rig) {
     return (
       <div className="step-panel">
-        <h2>Hands</h2>
-        <p className="muted">Build the rig first (Rig step).</p>
+        <StepHeader step="hands" />
+        <EmptyState icon={<IconRig size={22} />} title="Build the rig first">
+          <p>The Rig step places the joints and builds the rig this step needs.</p>
+        </EmptyState>
       </div>
     )
   }
   return (
     <div className="step-panel">
-      <div className="step-head">
-        <h2>Hands</h2>
-        <span className="spacer" />
-        <button onClick={undoPose} disabled={!canUndo} title="Undo (Ctrl+Z)">
-          Undo
+      <StepHeader step="hands">
+        <button className="icon-button" onClick={undoPose} disabled={!canUndo} title="Undo (Ctrl+Z)" aria-label="Undo">
+          <IconUndo size={16} />
         </button>
-        <button onClick={redoPose} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">
-          Redo
+        <button className="icon-button" onClick={redoPose} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" aria-label="Redo">
+          <IconRedo size={16} />
         </button>
-      </div>
+      </StepHeader>
       <HandPanel side="R" />
       <HandPanel side="L" />
     </div>

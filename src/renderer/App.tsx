@@ -2,9 +2,11 @@
 // App shell: title bar, steps, viewer, step panel, status bar, Blender setup.
 import { useEffect } from 'react'
 import { BlenderSetup } from './components/BlenderSetup'
+import { EmptyState, StepHeader } from './components/common'
 import { ErrorBanner } from './components/ErrorBanner'
 import { ExportStep } from './components/ExportStep'
 import { HandsStep } from './components/HandsStep'
+import { IconFolder, IconImport } from './components/icons'
 import { ImportStep } from './components/ImportStep'
 import { LibraryPanel } from './components/LibraryPanel'
 import { PoseStep } from './components/PoseStep'
@@ -18,7 +20,6 @@ import { WeaponsStep } from './components/WeaponsStep'
 import { fire, loadAppInfo, refreshBlender, saveProject, subscribeEvents } from './store/actions'
 import { useStore } from './store'
 import { commitFrame, redoPose, undoPose } from './store/poseActions'
-import { STEP_LABELS } from './store/ui'
 import { Viewer } from './viewer/Viewer'
 
 function useAppLifecycle(): void {
@@ -87,14 +88,43 @@ function useAppLifecycle(): void {
   }, [])
 }
 
+/** Viewport overlay while there is nothing to look at: "Import a model to begin", or the import running. */
+function ViewportHint() {
+  const hasProject = useStore((s) => s.dir !== null)
+  const empty = useStore((s) => s.previewUrl === null && (s.rigJson === null || s.glbUrl === null))
+  const importing = useStore((s) => s.active?.type === 'import')
+  const label = useStore((s) => (s.active?.type === 'import' ? s.progress?.message || s.active.label : ''))
+  if (!hasProject || !empty) return null
+  return (
+    <div className="viewport-hint" aria-live="polite">
+      {importing ? (
+        <>
+          <span className="spinner large" aria-hidden="true" />
+          <p className="viewport-hint-title">Importing the model…</p>
+          {label && <p className="viewport-hint-body">{label}</p>}
+        </>
+      ) : (
+        <>
+          <span className="viewport-hint-icon">
+            <IconImport size={26} />
+          </span>
+          <p className="viewport-hint-title">Import a model to begin</p>
+          <p className="viewport-hint-body">FBX, glTF/GLB, OBJ, STL or PLY. Use Choose model… in the panel on the right.</p>
+        </>
+      )}
+    </div>
+  )
+}
+
 function StepPanel() {
   const hasProject = useStore((s) => s.dir !== null)
   const step = useStore((s) => s.step)
   if (!hasProject) {
     return (
       <div className="step-panel">
-        <h2>No project</h2>
-        <p className="muted">Create a new project or open one to start.</p>
+        <EmptyState icon={<IconFolder size={22} />} title="No project open">
+          <p>Create a new project or open one to start.</p>
+        </EmptyState>
       </div>
     )
   }
@@ -106,7 +136,7 @@ function StepPanel() {
   if (step === 'export') return <ExportStep />
   return (
     <div className="step-panel">
-      <h2>{STEP_LABELS[step]}</h2>
+      <StepHeader step={step} />
       <p className="muted">Coming soon.</p>
     </div>
   )
@@ -131,6 +161,7 @@ export function App() {
       {posing && <LibraryPanel />}
       <main className="viewport">
         <Viewer />
+        <ViewportHint />
         {!hasProject && <ProjectsScreen />}
         {posing && <Scrubber />}
         <ErrorBanner />

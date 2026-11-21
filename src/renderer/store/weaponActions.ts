@@ -157,14 +157,28 @@ export function setTwoHanded(id: string, on: boolean): void {
 export function setSupportGrip(id: string, point: Vec3, surfaceNormal: Vec3, axis: Vec3): void {
   update(id, (w) => {
     const side = w.attach_bone === 'grip.L' ? 'R' : 'L'
-    return { ...w, support: { enabled: true, side, ...supportFromHit(point, surfaceNormal, w.support?.axis ?? axis) } }
+    return { ...w, support: { ...w.support, enabled: true, side, ...supportFromHit(point, surfaceNormal, w.support?.axis ?? axis) } }
   })
   S().setWeaponTool('move')
 }
 
 /** Sets the support grip exactly (e.g. from a weapon's known grip data). */
 export function setSupport(id: string, support: { point: Vec3; normal: Vec3; axis: Vec3 }): void {
-  update(id, (w) => ({ ...w, support: { enabled: true, side: w.attach_bone === 'grip.L' ? 'R' : 'L', ...support } }))
+  update(id, (w) => ({ ...w, support: { ...w.support, enabled: true, side: w.attach_bone === 'grip.L' ? 'R' : 'L', ...support } }))
+}
+
+/**
+ * Two-handed: what the weapon follows. "both" (the default): both hands, so the pose aims it from the
+ * main hand at the support hand. "reach": the main hand only; the support hand reaches for its grip.
+ */
+export function setFollowMode(id: string, mode: 'both' | 'reach'): void {
+  // support.mode is the shared WeaponSupport field (shared/weaponPose); the project type predates it
+  update(id, (w) => (w.support ? { ...w, support: { ...w.support, mode } as WeaponEntry['support'] } : w))
+}
+
+/** The click tool that sets `side`'s grip on this weapon: the main hand's grip point, or the support grip. */
+export function gripToolFor(w: Pick<WeaponEntry, 'attach_bone'>, side: 'L' | 'R'): 'grip' | 'support' {
+  return w.attach_bone === `grip.${side}` ? 'grip' : 'support'
 }
 
 export function flipSupportAxis(id: string): void {

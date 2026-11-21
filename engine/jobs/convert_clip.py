@@ -28,6 +28,14 @@ def extract_bvh(archives, dest, include=None):
     out, total = [], 0
     for z in archives:
         try:
+            with open(z, "rb") as fh:
+                head = fh.read(64)
+        except OSError:
+            head = b""
+        if head.startswith(b"version https://git-lfs"):
+            raise protocol.MpmError("E_IMPORT_FAILED", "%s is a Git LFS placeholder, not the real archive: download it with "
+                                    "\"Download raw file\" on the dataset's GitHub page" % os.path.basename(z))
+        try:
             zf = zipfile.ZipFile(z)
         except (OSError, zipfile.BadZipFile) as e:
             raise protocol.MpmError("E_IMPORT_FAILED", "not a readable zip: %s" % os.path.basename(z), {"error": str(e)})

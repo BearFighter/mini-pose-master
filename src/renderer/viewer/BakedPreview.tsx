@@ -6,6 +6,7 @@ import { Box3, type Object3D } from 'three'
 import { cleanError } from '../api'
 import { useStore } from '../store'
 import { afterFrames, boundsOf, disposeObject, loadGltf } from './gltf'
+import { applyDisplayLook } from './look'
 
 export function BakedPreview({ url }: { url: string }) {
   const [scene, setScene] = useState<Object3D | null>(null)
@@ -19,6 +20,7 @@ export function BakedPreview({ url }: { url: string }) {
       .then((gltf) => {
         if (cancelled) return disposeObject(gltf.scene)
         loaded = gltf.scene
+        applyDisplayLook(gltf.scene, 'baked')
         // stand it on the grid, centred
         const box = new Box3().setFromObject(gltf.scene)
         gltf.scene.position.set(-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2)

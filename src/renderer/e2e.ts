@@ -15,6 +15,7 @@ import {
   currentPose,
   currentPoseState,
   commitFrame,
+  displayPose,
   importOwnBvh,
   redoPose,
   selectClip,
@@ -268,7 +269,8 @@ export function installTestHook(): void {
       const report = useStore.getState().gripReport[side]
       return { fingers: r.fingers, ms: report?.ms ?? 0, unitMm: report?.unitMm ?? 0 }
     },
-    supportShort: () => currentPose(false)?.supportShort ?? {},
+    // what the viewer shows (the setup stance in the Weapons and Hands steps)
+    supportShort: () => displayPose(false)?.supportShort ?? {},
     boneIndex: (canonical) => {
       const rig = useStore.getState().rigJson
       return rig ? canonicalIndex(rig).get(canonical) ?? -1 : -1
@@ -283,7 +285,7 @@ export function installTestHook(): void {
     },
     focusJoint: (joint, radius) => {
       const s = useStore.getState()
-      const pose = currentPose(false)
+      const pose = displayPose(false)
       if (s.rigJson && pose) {
         const j = posedJoints(s.rigJson, pose.deltas)[joint]
         if (j) {

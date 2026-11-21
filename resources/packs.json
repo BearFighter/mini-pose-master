@@ -1082,7 +1082,7 @@
         "accepts": [
           ".zip"
         ],
-        "instructions": "Download lafan1.zip from the LaFAN1 page (lafan1 folder) and choose it here."
+        "instructions": "On the LaFAN1 GitHub page open lafan1/lafan1.zip and click \"Download raw file\" (about 144 MB). The repository's \"Download ZIP\" button only gives a small placeholder for this file. Then choose the downloaded lafan1.zip here."
       },
       "include": null
     },

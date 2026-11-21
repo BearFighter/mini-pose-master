@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Bone lines between joints (Blender frame in, three.js frame drawn), always on top of the mesh.
-import { useEffect, useMemo } from 'react'
-import { BufferGeometry, Float32BufferAttribute, Vector3 } from 'three'
+import { Line } from '@react-three/drei'
+import { useMemo } from 'react'
+import { Vector3 } from 'three'
 import type { Vec3 } from '../../shared/coords'
 import { BONES } from '../../shared/skeleton'
 
@@ -24,16 +25,28 @@ export function bonePositions(joints: Record<string, Point>): number[] {
   return out
 }
 
-export function SkeletonLines({ joints, color = '#9fd0ff' }: { joints: Record<string, Point>; color?: string }) {
-  const geometry = useMemo(() => {
-    const g = new BufferGeometry()
-    g.setAttribute('position', new Float32BufferAttribute(bonePositions(joints), 3))
-    return g
+export function SkeletonLines({ joints, color = '#cfe6ff' }: { joints: Record<string, Point>; color?: string }) {
+  const points = useMemo(() => {
+    const p = bonePositions(joints)
+    const out: [number, number, number][] = []
+    for (let i = 0; i < p.length; i += 3) out.push([p[i], p[i + 1], p[i + 2]])
+    return out
   }, [joints])
-  useEffect(() => () => geometry.dispose(), [geometry])
+  if (points.length < 2) return null
+  // screen-space width (Line2), always on top of the mesh
   return (
-    <lineSegments geometry={geometry} renderOrder={9} frustumCulled={false}>
-      <lineBasicMaterial color={color} depthTest={false} depthWrite={false} transparent opacity={0.9} />
-    </lineSegments>
+    <Line
+      points={points}
+      segments
+      lineWidth={2}
+      color={color}
+      renderOrder={9}
+      frustumCulled={false}
+      depthTest={false}
+      depthWrite={false}
+      transparent
+      opacity={0.85}
+      toneMapped={false}
+    />
   )
 }

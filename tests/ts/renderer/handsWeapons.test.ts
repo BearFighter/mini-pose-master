@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // WP9 flows against a fake window.mpm: one history for pose, hands and weapons; project save/load of
 // hands and weapons; the weapon and hand flows; auto-grip through the store; the bake job call.
-import { CylinderGeometry, Group, Mesh, Vector3 } from 'three'
+import { CylinderGeometry, Group, Matrix4, Mesh, Vector3 } from 'three'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { projectUrl } from '../../../src/renderer/lib/paths'
 import { useStore } from '../../../src/renderer/store'
@@ -122,8 +122,9 @@ describe('one history', () => {
     expect(saved.weapons).toEqual(S().weapons)
     expect(saved.hands).toEqual({ L: S().hands.L, R: null, locked: { L: ['index'], R: [] } })
     expect(saved.pose!.deltas).toEqual(currentPoseState()!.deltas)
-    // the saved deltas include the two-hand IK: the left socket sits on the support point
-    const W = weaponMatrix(RIG, saved.pose!.deltas, saved.weapons[0])!
+    // the saved deltas include the two-hand IK: the left socket sits on the support point of the weapon
+    // as the pose places it (composePose weaponMatrices; "both" mode turns it towards the left hand)
+    const W = new Matrix4().fromArray(currentPose(false)!.weaponMatrices.w1)
     const target = new Vector3(0, 0, -0.06).applyMatrix4(W)
     const socket = new Vector3().setFromMatrixPosition(attachFrame(RIG, saved.pose!.deltas, 'grip.L')!)
     expect(currentPose()!.supportShort.w1).toBeLessThan(1e-6)
@@ -282,7 +283,10 @@ describe('bake', () => {
     expect(run.type).toBe('bake')
     expect(run.args.name).toBe('Hero')
     expect(Object.keys((run.args.pose as { deltas: object }).deltas)).toHaveLength(RIG.bones.length)
-    expect(run.args.weapons).toEqual(S().weapons)
+    // each weapon carries its transform for the pose (composePose weaponMatrices)
+    const matrices = currentPose(false)!.weaponMatrices
+    expect(run.args.weapons).toEqual(S().weapons.map((w) => ({ ...w, matrix: matrices[w.id] })))
+    expect((run.args.weapons as { matrix: number[] }[])[0].matrix).toHaveLength(16)
     expect((run.args.bake as { scale: unknown }).scale).toEqual({ mode: 'height_mm', height_mm: 32 })
     expect(S().dirty).toBe(false) // saved before baking
     expect(S().bakeResult?.stl).toBe('exports/Hero.stl')

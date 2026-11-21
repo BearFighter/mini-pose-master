@@ -6,6 +6,7 @@ import type { FileFilter } from '../../shared/ipc'
 import { api, cleanError } from '../api'
 import { useStore } from '../store'
 import { formatBytes, ProgressBar } from './common'
+import { IconDownload, IconFolder } from './icons'
 
 function blenderFilters(platform: string | undefined): FileFilter[] {
   if (platform === 'win32') return [{ name: 'Blender (blender.exe)', extensions: ['exe'] }]
@@ -70,18 +71,20 @@ export function BlenderSetup() {
           models. It runs in the background; you never have to open it yourself.
         </p>
         {found ? (
-          <p className="ok">
+          <p className="ok status-line">
             Using Blender {status.version} ({status.source}): <code>{status.path}</code>
           </p>
         ) : (
-          <p className="warn">Blender 5.2 was not found on this computer.</p>
+          <p className="warn status-line">Blender 5.2 was not found on this computer.</p>
         )}
 
         <div className="button-row">
           <button onClick={() => void locate()} disabled={busy !== null}>
+            <IconFolder size={14} />
             {busy === 'locate' ? 'Checking…' : 'Locate Blender…'}
           </button>
           <button onClick={() => void download()} disabled={busy !== null}>
+            <IconDownload size={14} />
             Download Blender 5.2 (~400 MB download, ~1.2 GB installed)
           </button>
         </div>

@@ -7,8 +7,9 @@ import { AXES, forwardChoices, pickOrientation, sameOrientation, unitScaleChoice
 import { partsOf } from '../lib/parts'
 import { chooseAndImportModel, fire, rerunImport } from '../store/actions'
 import { useStore } from '../store'
-import { ProgressBar, Section, Warnings } from './common'
+import { ProgressBar, Section, StepHeader, Warnings } from './common'
 import { PartsPanel } from './PartsPanel'
+import { IconFile, IconImport } from './icons'
 
 function ImportSummary({ info }: { info: ImportJobResult }) {
   return (
@@ -122,23 +123,26 @@ export function ImportStep() {
 
   return (
     <div className="step-panel">
-      <h2>Import</h2>
-      <div className="button-row">
+      <StepHeader step="import" />
+      <div className="button-row cta">
         <button className="primary" disabled={busy} onClick={() => fire(chooseAndImportModel())}>
+          <IconImport size={15} />
           Choose model…
         </button>
       </div>
       <p className="muted small">FBX, glTF/GLB, OBJ, STL or PLY. The model and its textures are copied into the project.</p>
       {source && (
-        <p>
-          Model: <code>{source.file}</code>
+        <p className="file-line">
+          <IconFile size={14} />
+          <span className="muted">Model</span>
+          <code>{source.file}</code>
         </p>
       )}
       {active?.type === 'import' && <ProgressBar fraction={progress?.fraction ?? null} label={progress?.message || active.label} />}
       {info && <ImportSummary info={info} />}
       {parts.length > 0 && <PartsPanel parts={parts} />}
       {!info && source && !busy && (
-        <div className="hint">
+        <div className="hint callout">
           <p>The import summary is shown after an import.</p>
           <button onClick={() => fire(rerunImport())}>Run the import again</button>
         </div>

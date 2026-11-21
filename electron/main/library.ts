@@ -319,6 +319,23 @@ interface Waiter {
   progress?: (fraction: number) => void
 }
 
+/**
+ * GitHub's "Download ZIP" of a repository that keeps big files in Git LFS (LaFAN1 does) contains small
+ * text pointers instead of the files. Say so plainly instead of failing as "not a readable zip".
+ */
+async function refuseLfsPointer(abs: string, size: number): Promise<void> {
+  if (size > 1024) return
+  const head = (await fs.readFile(abs)).subarray(0, 64).toString('utf8')
+  if (head.startsWith('version https://git-lfs')) {
+    throw new MpmError(
+      'E_ARGS',
+      `${path.basename(abs)} is only a ${size}-byte Git LFS placeholder, not the real archive. ` +
+        "GitHub's \"Download ZIP\" leaves these out: open the file on the dataset's GitHub page and use \"Download raw file\" " +
+        '(about 144 MB for LaFAN1), then choose that file.'
+    )
+  }
+}
+
 /** One chosen installFromFile source. */
 interface Source {
   abs: string
@@ -728,6 +745,7 @@ export class Library {
         for (const f of bvh) bytes += (await fs.stat(f)).size
         sources.push({ abs, kind: 'folder', files: bvh, bytes })
       } else if (stats.isFile() && ext === '.zip') {
+        await refuseLfsPointer(abs, stats.size)
         sources.push({ abs, kind: 'zip', files: [], bytes: (await zipBvhBytes(abs, include)) ?? stats.size * ZIP_FALLBACK_RATIO })
       } else if (stats.isFile() && ext === '.bvh') {
         sources.push({ abs, kind: 'bvh', files: [abs], bytes: stats.size })

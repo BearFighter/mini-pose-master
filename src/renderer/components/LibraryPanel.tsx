@@ -9,6 +9,7 @@ import { cancelInstall, importOwnBvh, refreshPacks, removePack, selectPack, upda
 import { ClipList } from './ClipList'
 import { ProgressBar } from './common'
 import { LicenseDialog } from './LicenseDialog'
+import { IconDownload, IconPlus } from './icons'
 
 function PackRow({ pack, selected, onInstall }: { pack: PackInfo; selected: boolean; onInstall: () => void }) {
   const progress = useStore((s) => s.installs[pack.id])
@@ -18,6 +19,7 @@ function PackRow({ pack, selected, onInstall }: { pack: PackInfo; selected: bool
       <button className="pack-main" disabled={!pack.installed} onClick={() => fire(selectPack(pack.id))} title={pack.title}>
         <span className="pack-title">{pack.title}</span>
         <span className="muted small">
+          <span className={pack.installed ? 'pack-dot on' : 'pack-dot'} aria-hidden="true" />
           {pack.installed ? `${pack.clips} clips` : 'not installed'} · {pack.license}
           {pack.nc ? ' · non-commercial' : ''}
         </span>
@@ -31,6 +33,7 @@ function PackRow({ pack, selected, onInstall }: { pack: PackInfo; selected: bool
         <div className="pack-actions">
           {!pack.installed && pack.id !== 'mine' && (
             <button disabled={busy} onClick={onInstall}>
+              <IconDownload size={13} />
               Install…
             </button>
           )}
@@ -45,7 +48,7 @@ function PackRow({ pack, selected, onInstall }: { pack: PackInfo; selected: bool
             </button>
           )}
           {pack.installed && (
-            <button disabled={busy} onClick={() => fire(removePack(pack.id))}>
+            <button className="danger" disabled={busy} onClick={() => fire(removePack(pack.id))}>
               Remove
             </button>
           )}
@@ -70,6 +73,7 @@ export function LibraryPanel() {
       <div className="library-head">
         <h2>Poses</h2>
         <button disabled={mineBusy} onClick={() => fire(importOwnBvh())}>
+          <IconPlus size={13} />
           Import my own BVH…
         </button>
       </div>

@@ -50,7 +50,7 @@ describe('resources/packs.json', () => {
     expect(lafan.download).toEqual({
       user_supplied: true,
       accepts: ['.zip'],
-      instructions: 'Download lafan1.zip from the LaFAN1 page (lafan1 folder) and choose it here.'
+      instructions: expect.stringContaining('Download raw file')
     })
     expect(cmu).toMatchObject({
       source: 'cmu',

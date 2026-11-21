@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { commitFrame, previewFrame, setPlanted } from '../store/poseActions'
+import { IconKeyBack, IconKeyForward, IconPause, IconPlay, IconStepBack, IconStepForward } from './icons'
 
 const FPS = 15
 
@@ -56,20 +57,25 @@ export function Scrubber() {
   return (
     <div className="scrubber" onKeyDown={(e) => e.stopPropagation()}>
       <div className="scrub-buttons">
-        <button title="Previous key frame" onClick={() => go(nextKey(keys, frame, -1, frames))}>
-          ⏮
+        <button className="icon-button" title="Previous key frame" aria-label="Previous key frame" onClick={() => go(nextKey(keys, frame, -1, frames))}>
+          <IconKeyBack size={14} />
         </button>
-        <button title="Previous frame" onClick={() => go(frame - 1)}>
-          ◀
+        <button className="icon-button" title="Previous frame" aria-label="Previous frame" onClick={() => go(frame - 1)}>
+          <IconStepBack size={15} />
         </button>
-        <button title={playing ? 'Pause' : 'Play'} onClick={togglePlay} className={playing ? 'on' : ''}>
-          {playing ? '⏸' : '▶'}
+        <button
+          title={playing ? 'Pause' : 'Play'}
+          aria-label={playing ? 'Pause' : 'Play'}
+          onClick={togglePlay}
+          className={playing ? 'icon-button play on' : 'icon-button play'}
+        >
+          {playing ? <IconPause size={15} /> : <IconPlay size={15} />}
         </button>
-        <button title="Next frame" onClick={() => go(frame + 1)}>
-          ▶|
+        <button className="icon-button" title="Next frame" aria-label="Next frame" onClick={() => go(frame + 1)}>
+          <IconStepForward size={15} />
         </button>
-        <button title="Next key frame" onClick={() => go(nextKey(keys, frame, 1, frames))}>
-          ⏭
+        <button className="icon-button" title="Next key frame" aria-label="Next key frame" onClick={() => go(nextKey(keys, frame, 1, frames))}>
+          <IconKeyForward size={14} />
         </button>
       </div>
       <div className="scrub-track">
@@ -80,6 +86,7 @@ export function Scrubber() {
           step={1}
           value={frame}
           aria-label="Frame"
+          style={{ '--fill': `${frames > 1 ? (frame / (frames - 1)) * 100 : 0}%` } as React.CSSProperties}
           onChange={(e) => {
             setPlaying(false)
             previewFrame(Number(e.target.value))
@@ -98,7 +105,8 @@ export function Scrubber() {
         </div>
       </div>
       <span className="scrub-frame">
-        {frame} / {frames - 1}
+        <span className="scrub-frame-now">{frame}</span>
+        <span className="muted"> / {frames - 1}</span>
       </span>
       <span className="contacts" title="Feet on the floor in this frame">
         <span className={contacts.L ? 'foot on' : 'foot'}>L</span>

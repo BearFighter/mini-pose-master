@@ -14,7 +14,8 @@ import {
 } from '../store/actions'
 import { useStore } from '../store'
 import { MAPPABLE_BONES } from '../store/rig'
-import { percent, ProgressBar, Section } from './common'
+import { EmptyState, percent, ProgressBar, Section, StepHeader } from './common'
+import { IconImport, IconRig, IconSparkle, IconZoom } from './icons'
 import { MarkerList } from './MarkerList'
 
 function JobProgress({ types }: { types: string[] }) {
@@ -72,6 +73,7 @@ function AutoRigPanel() {
         </p>
         <div className="button-row">
           <button className={markers ? '' : 'primary'} disabled={busy} onClick={() => fire(findJoints())}>
+            <IconSparkle size={14} />
             {markers ? 'Find joints again' : 'Find joints'}
           </button>
           {markers && (
@@ -86,7 +88,7 @@ function AutoRigPanel() {
 
       {markers && editing && (
         <Section title={`Markers (${Object.keys(markers).length})`}>
-          <p className="small">
+          <p className="small levels">
             <span className="level high">{counts.high} sure</span> <span className="level medium">{counts.medium} check</span>{' '}
             <span className="level low">{counts.low} unsure</span>
           </p>
@@ -99,9 +101,18 @@ function AutoRigPanel() {
             </label>
           </div>
           <div className="button-row">
-            <button onClick={() => zoomToHand('L')}>Zoom to hand L</button>
-            <button onClick={() => zoomToHand('R')}>Zoom to hand R</button>
-            <button onClick={() => requestFocus([0, height / 2, 0], height * 0.55, false)}>Whole body</button>
+            <button onClick={() => zoomToHand('L')}>
+              <IconZoom size={14} />
+              Zoom to hand L
+            </button>
+            <button onClick={() => zoomToHand('R')}>
+              <IconZoom size={14} />
+              Zoom to hand R
+            </button>
+            <button onClick={() => requestFocus([0, height / 2, 0], height * 0.55, false)}>
+              <IconZoom size={14} />
+              Whole body
+            </button>
           </div>
           <div className="button-row" title="Two extra points per finger for curved fingers and claws. Without them each finger is a straight line from knuckle to tip.">
             {(['L', 'R'] as const).map((side) => {
@@ -126,8 +137,9 @@ function AutoRigPanel() {
       )}
 
       {markers && editing && (
-        <div className="button-row">
+        <div className="button-row cta">
           <button className="primary" disabled={busy} onClick={() => fire(buildRig('auto'))}>
+            <IconRig size={15} />
             Build rig
           </button>
         </div>
@@ -195,8 +207,9 @@ function MappingPanel() {
         </Section>
       )}
       {mapping && (
-        <div className="button-row">
+        <div className="button-row cta">
           <button className="primary" disabled={busy || !anyMapped} onClick={() => fire(buildRig('imported'))}>
+            <IconRig size={15} />
             Build rig
           </button>
         </div>
@@ -274,8 +287,10 @@ export function RigStep() {
   if (!source?.orientation) {
     return (
       <div className="step-panel">
-        <h2>Rig</h2>
-        <p className="muted">Import a model first.</p>
+        <StepHeader step="rig" />
+        <EmptyState icon={<IconImport size={22} />} title="Import a model first">
+          <p>The Import step loads the character and sets which way is up.</p>
+        </EmptyState>
       </div>
     )
   }
@@ -287,10 +302,10 @@ export function RigStep() {
 
   return (
     <div className="step-panel">
-      <h2>Rig</h2>
+      <StepHeader step="rig" />
       {showingRig && <RigResultPanel />}
       {hasSkeleton ? (
-        <div className="tabs" role="tablist">
+        <div className="tabs segmented" role="tablist">
           <button role="tab" aria-selected={rigPath === 'auto'} className={rigPath === 'auto' ? 'tab active' : 'tab'} onClick={() => setRigPath('auto')}>
             Auto-rig
           </button>

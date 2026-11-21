@@ -408,6 +408,15 @@ Weapon entry (project file):
   bone's posed frame. Weapon geometry is in metres, in Blender frame.
 - `source` and `unit_scale` (optional) record what `convert_weapon` was run on, so the units can be
   changed again after the project is reopened.
+- **Two-handed weapons** (`support.enabled`), `support.mode`:
+  - `"both"` (default): the weapon follows both hands. The main grip (the weapon point on the main
+    hand's socket) stays on the main hand; the weapon turns about it by the smallest rotation that
+    points its support grip at the support hand's socket as the pose places it; then the support hand
+    closes exactly on its grip (two-hand IK below). Moving either arm in the pose turns the weapon.
+  - `"reach"`: the weapon stays fixed in the main hand and the support hand reaches for it.
+  - `composePose` returns `weaponMatrices` (armature space, column-major 4×4) per weapon; the viewer
+    draws with it and the bake receives it as the weapon entry's `matrix`, which overrides `A · TRS`.
+  - The Weapons and Hands steps show a fixed holding stance (`holdingStance`), never stored in the pose.
 - `support.point`, `normal` and `axis` are in **weapon-local** coordinates. They give where the support
   hand's grip socket goes, which way the palm faces, and the grip axis.
 - **Two-hand IK** (`ik.ts`, Python reference `engine/mpm/ik.py`):

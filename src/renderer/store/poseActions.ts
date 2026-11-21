@@ -20,6 +20,8 @@ import {
   poseStateFor,
   provenanceFromInputs,
   removeBoneEdits,
+  setupInputs,
+  showsSetupStance,
   type PoseInputsState
 } from '../lib/pose'
 import { type ConfirmDiscard, defaultConfirm, fail, S } from './flow'
@@ -170,6 +172,17 @@ export function currentPose(withPreview = true): ComposeResult | null {
   const s = S()
   if (!s.rigJson) return null
   return computePose(s.rigJson, s.poseInputs, withPreview ? s.posePreview : null, s.loadedClip, s.hands, s.weapons)
+}
+
+/**
+ * The pose the viewer shows: the setup stance in the Weapons and Hands steps (lib/pose setupInputs, never
+ * stored), else currentPose. Hands, weapons and any preview are included.
+ */
+export function displayPose(withPreview = true): ComposeResult | null {
+  const s = S()
+  if (!s.rigJson) return null
+  if (!showsSetupStance(s.step)) return currentPose(withPreview)
+  return computePose(s.rigJson, setupInputs(s.rigJson, s.weapons), withPreview ? s.posePreview : null, null, s.hands, s.weapons)
 }
 
 /** project.pose for the committed inputs; null without a rig. */

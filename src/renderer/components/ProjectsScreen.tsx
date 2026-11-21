@@ -5,6 +5,7 @@ import { api, cleanError } from '../api'
 import { loadRecent, removeRecent, type RecentProject } from '../lib/recent'
 import { chooseAndOpenProject, createProject, fire, openProject } from '../store/actions'
 import { useStore } from '../store'
+import { IconClose, IconFile, IconFolder, IconPlus, LogoMark } from './icons'
 
 export function ProjectsScreen() {
   const [name, setName] = useState('My miniature')
@@ -45,8 +46,13 @@ export function ProjectsScreen() {
   return (
     <div className="projects-screen">
       <div className="projects-card">
-        <h1>Mini Pose Master</h1>
-        <p className="muted">Rig, pose and bake 3D characters into printable miniatures.</p>
+        <div className="projects-hero">
+          <LogoMark size={44} />
+          <div>
+            <h1>Mini Pose Master</h1>
+            <p className="muted">Rig, pose and bake 3D characters into printable miniatures.</p>
+          </div>
+        </div>
 
         <section>
           <h2>New project</h2>
@@ -58,10 +64,14 @@ export function ProjectsScreen() {
             <span>Create in folder</span>
             <div className="field-row">
               <input value={parent} onChange={(e) => setParent(e.target.value)} placeholder="Choose a folder…" />
-              <button onClick={() => void browse()}>Browse…</button>
+              <button onClick={() => void browse()}>
+                <IconFolder size={14} />
+                Browse…
+              </button>
             </div>
           </label>
           <button className="primary" onClick={create} disabled={busy}>
+            <IconPlus size={15} />
             Create project
           </button>
         </section>
@@ -70,9 +80,11 @@ export function ProjectsScreen() {
           <h2>Open project</h2>
           <div className="button-row">
             <button onClick={() => fire(chooseAndOpenProject())} disabled={busy}>
+              <IconFile size={14} />
               Open .mposer file…
             </button>
             <button onClick={() => void openFolder()} disabled={busy}>
+              <IconFolder size={14} />
               Open project folder…
             </button>
           </div>
@@ -90,8 +102,8 @@ export function ProjectsScreen() {
                     <strong>{r.name}</strong>
                     <span className="muted">{r.dir}</span>
                   </button>
-                  <button className="icon" title="Remove from the list" onClick={() => setRecent(removeRecent(r.dir))}>
-                    ×
+                  <button className="icon" title="Remove from the list" aria-label="Remove from the list" onClick={() => setRecent(removeRecent(r.dir))}>
+                    <IconClose size={14} />
                   </button>
                 </li>
               ))}

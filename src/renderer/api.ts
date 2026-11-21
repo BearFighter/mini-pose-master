@@ -80,7 +80,9 @@ function asHandle(raw: { dir: string; project: unknown }): ProjectHandle {
 export const api = {
   app: {
     info: (): Promise<AppInfo> => call((m) => m.app.info()),
-    checkUpdate: (): Promise<UpdateCheckResult> => call((m) => m.app.checkUpdate())
+    checkUpdate: (): Promise<UpdateCheckResult> => call((m) => m.app.checkUpdate()),
+    /** Windows / Linux: quit and install the downloaded update. macOS: opens the release page. */
+    installUpdate: (): Promise<void> => call((m) => m.app.installUpdate())
   },
   blender: {
     status: (): Promise<BlenderStatus> => call((m) => m.blender.status()),

@@ -3,6 +3,7 @@
 // reset), the canonical bone tree, and pose-wide edits (clear, mirror, copy L->R / R->L).
 import { useMemo } from 'react'
 import { canonicalTree } from '../lib/pose'
+import { supportArmNote } from '../lib/weapons'
 import { useStore } from '../store'
 import {
   clearEdits,
@@ -14,7 +15,8 @@ import {
   undoPose
 } from '../store/poseActions'
 import { usePoseResult } from '../viewer/Viewer'
-import { Section } from './common'
+import { IconClose, IconMirror, IconRedo, IconRig, IconTrash, IconUndo } from './icons'
+import { Section, StepHeader, EmptyState } from './common'
 
 function BoneTree() {
   const rig = useStore((s) => s.rigJson)
@@ -48,16 +50,19 @@ function SelectedBone() {
   const boneOnly = useStore((s) => s.boneOnly)
   const setBoneOnly = useStore((s) => s.setBoneOnly)
   const pose = usePoseResult()
+  const weapons = useStore((s) => s.weapons)
   if (!bone) return <p className="muted small">Click the model, a joint dot or a bone in the list to select it.</p>
   const hand = /^hand\.([LR])$/.exec(bone)?.[1] as 'L' | 'R' | undefined
   const short = hand ? pose?.reachShort[hand] : undefined
+  const held = supportArmNote(bone, weapons)
   return (
     <>
-      <p>
+      <p className="selected-bone">
+        <span className="bone-swatch" aria-hidden="true" />
         <strong>{bone}</strong>
       </p>
       {hand && (
-        <div className="tabs small-tabs" role="tablist">
+        <div className="tabs segmented small-tabs" role="tablist">
           <button className={tool === 'rotate' ? 'tab active' : 'tab'} onClick={() => setTool('rotate')}>
             Rotate
           </button>
@@ -72,6 +77,7 @@ function SelectedBone() {
         </label>
       )}
       {short !== undefined && short > 0.001 && <p className="warn small">Can't reach by {(short * 1000).toFixed(0)} mm</p>}
+      {held && <p className="hint small tip">{held}</p>}
       <div className="button-row">
         <button onClick={() => resetBone(bone)}>Reset bone</button>
       </div>
@@ -92,8 +98,10 @@ export function PoseStep() {
   if (!rig) {
     return (
       <div className="step-panel">
-        <h2>Pose</h2>
-        <p className="muted">Build the rig first (Rig step).</p>
+        <StepHeader step="pose" />
+        <EmptyState icon={<IconRig size={22} />} title="Build the rig first">
+          <p>The Rig step places the joints and builds the rig this step needs.</p>
+        </EmptyState>
       </div>
     )
   }
@@ -101,21 +109,19 @@ export function PoseStep() {
 
   return (
     <div className="step-panel">
-      <div className="step-head">
-        <h2>Pose</h2>
-        <span className="spacer" />
-        <button onClick={undoPose} disabled={!canUndo} title="Undo (Ctrl+Z)">
-          Undo
+      <StepHeader step="pose">
+        <button className="icon-button" onClick={undoPose} disabled={!canUndo} title="Undo (Ctrl+Z)" aria-label="Undo">
+          <IconUndo size={16} />
         </button>
-        <button onClick={redoPose} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">
-          Redo
+        <button className="icon-button" onClick={redoPose} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" aria-label="Redo">
+          <IconRedo size={16} />
         </button>
-      </div>
+      </StepHeader>
       {notice && (
         <p className="notice">
           {notice}{' '}
-          <button className="icon" onClick={() => setNotice(null)} title="Dismiss">
-            ×
+          <button className="icon" onClick={() => setNotice(null)} title="Dismiss" aria-label="Dismiss">
+            <IconClose size={14} />
           </button>
         </p>
       )}
@@ -129,6 +135,7 @@ export function PoseStep() {
         )}
         <div className="button-row">
           <button onClick={togglePoseMirror} className={inputs.mirrored ? 'on' : ''}>
+            <IconMirror size={14} />
             {inputs.mirrored ? 'Mirrored' : 'Mirror pose'}
           </button>
           {inputs.source && <button onClick={clearSource}>Rest pose</button>}
@@ -145,7 +152,8 @@ export function PoseStep() {
           <button onClick={() => copySide('R')} title="Copy the right side's pose to the left side">
             Copy pose R→L
           </button>
-          <button onClick={clearEdits} disabled={inputs.edits.length === 0}>
+          <button className="danger" onClick={clearEdits} disabled={inputs.edits.length === 0}>
+            <IconTrash size={14} />
             Clear edits
           </button>
         </div>

@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Pose step tools on the bound rig: clickable joint dots, mesh picking (largest skin weight on the
 // hit face), the selected bone highlighted, and the rotation / hand-reach gizmo (contracts section 13).
-import { TransformControls } from '@react-three/drei'
+import { Line, TransformControls } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import {
+  BackSide,
   BufferAttribute,
-  BufferGeometry,
-  Float32BufferAttribute,
   type Group,
   type Intersection,
   Object3D,
   Quaternion,
   Raycaster,
   type SkinnedMesh,
-  Vector2
+  Vector2,
+  Vector3
 } from 'three'
 import { vecB2T, vecT2B } from '../../shared/coords'
 import type { Deltas } from '../../shared/fk'
@@ -110,16 +110,12 @@ export function PoseTools({ bound, rig, deltas }: { bound: BoundRig; rig: RigJso
     }
   }, [gl, camera, bound, rig, selectBone])
 
-  const highlight = useMemo(() => {
-    const g = new BufferGeometry()
-    if (selIndex !== undefined) {
-      const h = vecB2T([posed[selIndex].head.x, posed[selIndex].head.y, posed[selIndex].head.z])
-      const t = vecB2T([posed[selIndex].tail.x, posed[selIndex].tail.y, posed[selIndex].tail.z])
-      g.setAttribute('position', new Float32BufferAttribute([h.x, h.y, h.z, t.x, t.y, t.z], 3))
-    }
-    return g
+  const highlight = useMemo((): [Vector3, Vector3] | null => {
+    if (selIndex === undefined) return null
+    const h = vecB2T([posed[selIndex].head.x, posed[selIndex].head.y, posed[selIndex].head.z])
+    const t = vecB2T([posed[selIndex].tail.x, posed[selIndex].tail.y, posed[selIndex].tail.z])
+    return [h, t]
   }, [posed, selIndex])
-  useEffect(() => () => highlight.dispose(), [highlight])
 
   return (
     <>
@@ -130,16 +126,39 @@ export function PoseTools({ bound, rig, deltas }: { bound: BoundRig; rig: RigJso
           const isSel = name === selected
           return (
             <mesh key={name} position={t} userData={{ bone: name }} renderOrder={12}>
-              <sphereGeometry args={[(isSel ? 0.009 : 0.0055) * height, 12, 8]} />
-              <meshBasicMaterial color={isSel ? '#ffa94d' : '#cfe3ff'} depthTest={false} depthWrite={false} transparent opacity={0.9} />
+              <sphereGeometry args={[(isSel ? 0.009 : 0.0055) * height, 16, 10]} />
+              <meshStandardMaterial
+                color={isSel ? '#ffa94d' : '#e3f1ff'}
+                emissive={isSel ? '#ffa94d' : '#9fd0f0'}
+                emissiveIntensity={isSel ? 0.6 : 0.35}
+                roughness={0.4}
+                metalness={0}
+                depthTest={false}
+                depthWrite={false}
+                transparent
+                opacity={0.95}
+              />
+              {/* dark rim (child: the dot picking ray test is not recursive) */}
+              <mesh renderOrder={11} scale={1.35}>
+                <sphereGeometry args={[(isSel ? 0.009 : 0.0055) * height, 16, 10]} />
+                <meshBasicMaterial color="#05080c" side={BackSide} depthTest={false} depthWrite={false} transparent opacity={0.7} toneMapped={false} />
+              </mesh>
             </mesh>
           )
         })}
       </group>
-      {selIndex !== undefined && (
-        <lineSegments geometry={highlight} renderOrder={13} frustumCulled={false}>
-          <lineBasicMaterial color="#ffa94d" depthTest={false} depthWrite={false} transparent />
-        </lineSegments>
+      {highlight && (
+        <Line
+          points={highlight}
+          lineWidth={3.5}
+          color="#ffa94d"
+          renderOrder={13}
+          frustumCulled={false}
+          depthTest={false}
+          depthWrite={false}
+          transparent
+          toneMapped={false}
+        />
       )}
       {selected && selIndex !== undefined && (
         <BoneGizmo

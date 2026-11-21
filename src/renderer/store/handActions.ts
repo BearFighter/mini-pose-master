@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Hands step flows (contracts sections 10-11): presets, finger sliders (live preview, one undo step on
 // release), keep (locked), copy / reset, and auto-grip against the weapons held by that hand.
+import { Matrix4 } from 'three'
 import type { FingerName, HandPose } from '../../shared/handPose'
 import type { WeaponEntry } from '../../shared/project'
-import { weaponMatrix } from '../../shared/weaponPose'
 import { cleanError } from '../api'
 import { autoGrip, buildBVH, type AutoGripResult } from '../lib/autoGrip'
 import { copyHand, handFromPreset, presetByName, setLocked, type HandsState } from '../lib/hands'
 import { projectUrl } from '../lib/paths'
-import { computePose } from '../lib/pose'
+import { computePose, setupInputs } from '../lib/pose'
 import { unitMm, weaponTriangles } from '../lib/weapons'
 import { loadWeaponScene } from '../viewer/weaponView'
 import { fail, S } from './flow'
@@ -69,13 +69,18 @@ export async function runAutoGrip(side: 'L' | 'R'): Promise<AutoGripResult> {
   if (!rig.hands[side]) return fail(new Error(`This rig has no finger bones on the ${side === 'L' ? 'left' : 'right'} hand`))
   const held = weaponsForHand(s.weapons, side)
   if (held.length === 0) return fail(new Error('Attach a weapon to this hand first (Weapons step)'))
-  // contracts section 13: hand poses come last, so the weapon and the arm don't depend on this hand's fingers
-  const base = computePose(rig, s.poseInputs, null, s.loadedClip, s.hands, s.weapons, side).deltas
+  // contracts section 13: hand poses come last, so the weapon and the arm don't depend on this hand's fingers.
+  // Auto-grip runs in the setup stance (the pose the Weapons and Hands steps show): the hand-to-weapon
+  // relation doesn't depend on the pose (main hand rigid, support hand set on its grip), so the fingers
+  // stay valid in any pose.
+  const composed = computePose(rig, setupInputs(rig, s.weapons), null, null, s.hands, s.weapons, side)
+  const base = composed.deltas
   const parts: Float32Array[] = []
   try {
     for (const w of held) {
-      const Mb = weaponMatrix(rig, base, w)
-      if (!Mb) continue
+      const m = composed.weaponMatrices[w.id]
+      if (!m) continue
+      const Mb = new Matrix4().fromArray(m)
       const scene = await loadWeaponScene(w.id, projectUrl(w.file, s.weaponVersion[w.id]))
       parts.push(weaponTriangles(scene, Mb))
     }

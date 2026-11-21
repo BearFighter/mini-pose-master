@@ -16,6 +16,7 @@ import type { WeaponEntry } from '../../shared/project'
 import { makePoseState } from '../../shared/poseState'
 import type { RigJson } from '../../shared/rig'
 import { mirrorName } from '../../shared/skeleton'
+import { holdingStance } from '../../shared/weaponPose'
 
 /** The clip frame a pose starts from. */
 export interface PoseSource {
@@ -79,7 +80,7 @@ export interface HandsLike {
   R: HandPose | null
 }
 
-let memo: {
+interface MemoEntry {
   rig: RigJson
   inputs: PoseInputsState
   preview: PosePreview | null
@@ -88,7 +89,11 @@ let memo: {
   weapons: WeaponEntry[] | null
   skipHand: 'L' | 'R' | null
   result: ComposeResult
-} | null = null
+}
+
+/** The last few compositions (the viewer's display pose and the stored pose are often wanted together). */
+const memo: MemoEntry[] = []
+const MEMO_SIZE = 4
 
 /**
  * composePose for the current state (pose inputs, hands, weapons, plus any preview), memoised on its
@@ -104,18 +109,17 @@ export function computePose(
   weapons: WeaponEntry[] | null = null,
   skipHand: 'L' | 'R' | null = null
 ): ComposeResult {
-  if (
-    memo &&
-    memo.rig === rig &&
-    memo.inputs === inputs &&
-    memo.preview === preview &&
-    memo.clip === clip &&
-    memo.hands === hands &&
-    memo.weapons === weapons &&
-    memo.skipHand === skipHand
-  ) {
-    return memo.result
-  }
+  const hit = memo.find(
+    (m) =>
+      m.rig === rig &&
+      m.inputs === inputs &&
+      m.preview === preview &&
+      m.clip === clip &&
+      m.hands === hands &&
+      m.weapons === weapons &&
+      m.skipHand === skipHand
+  )
+  if (hit) return hit.result
   const eff = effectiveInputs(inputs, preview)
   const h = preview?.hands ?? hands
   const w = preview?.weapons ?? weapons
@@ -127,8 +131,48 @@ export function computePose(
     weapons: w ?? undefined
   }
   const result = composePose(rig, composeInputs, sourceFrame(eff, clip))
-  memo = { rig, inputs, preview, clip, hands, weapons, skipHand, result }
+  memo.unshift({ rig, inputs, preview, clip, hands, weapons, skipHand, result })
+  memo.length = Math.min(memo.length, MEMO_SIZE)
   return result
+}
+
+// ---------------------------------------------------------------------------------------------------
+// The setup stance of the Weapons and Hands steps
+
+/** The two-handed weapon that decides the setup stance (the first one), or null. */
+export function twoHandedWeapon(weapons: WeaponEntry[] | null | undefined): WeaponEntry | null {
+  return (weapons ?? []).find((w) => w.support?.enabled) ?? null
+}
+
+const stanceCache = new WeakMap<RigJson, Partial<Record<'L' | 'R', PoseInputsState>>>()
+
+/**
+ * The pose the Weapons and Hands steps show and auto-grip in (never stored in the user's pose): with a
+ * two-handed weapon, `holdingStance` as reach edits (both hands in front of the body, the weapon's main
+ * hand first); otherwise the rest pose. The same object for the same rig and main hand (memoisation).
+ */
+export function setupInputs(rig: RigJson, weapons: WeaponEntry[] | null | undefined): PoseInputsState {
+  const w = twoHandedWeapon(weapons)
+  if (!w) return REST_INPUTS
+  const main = w.attach_bone === 'grip.L' ? 'L' : 'R'
+  const cached = stanceCache.get(rig) ?? {}
+  let inputs = cached[main]
+  if (!inputs) {
+    let edits: EditOp[] = []
+    try {
+      edits = holdingStance(rig, main).map((h) => ({ kind: 'reach' as const, side: h.side, target: h.target }))
+    } catch {
+      edits = [] // a rig without shoulders: rest pose
+    }
+    inputs = { source: null, mirrored: false, planted: true, edits }
+    stanceCache.set(rig, { ...cached, [main]: inputs })
+  }
+  return inputs
+}
+
+/** Steps that show the setup stance instead of the user's pose. */
+export function showsSetupStance(step: string): boolean {
+  return step === 'weapons' || step === 'hands'
 }
 
 // ---------------------------------------------------------------------------------------------------

@@ -4,7 +4,7 @@
 import { Html } from '@react-three/drei'
 import { useThree, type ThreeEvent } from '@react-three/fiber'
 import { useMemo, useRef, useState } from 'react'
-import { Plane, Vector3 } from 'three'
+import { BackSide, Plane, Vector3 } from 'three'
 import { vecB2T, vecT2B } from '../../shared/coords'
 import type { MarkerEntry } from '../../shared/project'
 import { confidenceColor, displayConfidence, isFingerMarker, markerHeight } from '../lib/markers'
@@ -17,6 +17,9 @@ interface PointerTarget {
 }
 
 const DRAG_THRESHOLD_PX = 3
+
+/** Decorative meshes (rims, halos) never take pointer events. */
+const noRaycast = () => null
 
 interface DragState {
   plane: Plane
@@ -33,6 +36,7 @@ function MarkerSphere({ name, entry, radius, selected }: { name: string; entry: 
   const [hover, setHover] = useState(false)
   const position = useMemo(() => vecB2T(entry.p), [entry.p])
   const confidence = displayConfidence(entry)
+  const color = confidenceColor(confidence)
 
   const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
     if (e.nativeEvent.button !== 0) return
@@ -85,12 +89,27 @@ function MarkerSphere({ name, entry, radius, selected }: { name: string; entry: 
       }}
       onPointerOut={() => setHover(false)}
     >
-      <sphereGeometry args={[radius, 18, 12]} />
-      <meshBasicMaterial color={confidenceColor(confidence)} depthTest={false} depthWrite={false} transparent opacity={0.95} />
+      <sphereGeometry args={[radius, 20, 14]} />
+      <meshStandardMaterial
+        color={color}
+        emissive={color}
+        emissiveIntensity={0.55}
+        roughness={0.35}
+        metalness={0}
+        depthTest={false}
+        depthWrite={false}
+        transparent
+        opacity={0.97}
+      />
+      {/* dark rim so markers read against any surface (decorative: not pickable) */}
+      <mesh renderOrder={9} scale={1.3} raycast={noRaycast}>
+        <sphereGeometry args={[radius, 20, 14]} />
+        <meshBasicMaterial color="#05080c" side={BackSide} depthTest={false} depthWrite={false} transparent opacity={0.75} toneMapped={false} />
+      </mesh>
       {selected && (
-        <mesh renderOrder={11}>
-          <sphereGeometry args={[radius * 1.25, 18, 12]} />
-          <meshBasicMaterial color="#ffffff" wireframe depthTest={false} depthWrite={false} transparent opacity={0.9} />
+        <mesh renderOrder={8} scale={1.65} raycast={noRaycast}>
+          <sphereGeometry args={[radius, 20, 14]} />
+          <meshBasicMaterial color="#ffffff" side={BackSide} depthTest={false} depthWrite={false} transparent opacity={0.95} toneMapped={false} />
         </mesh>
       )}
       {(hover || selected) && (

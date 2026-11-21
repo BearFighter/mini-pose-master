@@ -6,6 +6,7 @@ import type { Object3D } from 'three'
 import { cleanError } from '../api'
 import { useStore } from '../store'
 import { afterFrames, boundsOf, disposeObject, loadGltf, setXray } from './gltf'
+import { applyDisplayLook } from './look'
 
 export function PreviewModel({ url, xray, frameOnLoad = true }: { url: string; xray: boolean; frameOnLoad?: boolean }) {
   const [scene, setScene] = useState<Object3D | null>(null)
@@ -20,6 +21,7 @@ export function PreviewModel({ url, xray, frameOnLoad = true }: { url: string; x
       .then((gltf) => {
         if (cancelled) return disposeObject(gltf.scene)
         loaded = gltf.scene
+        applyDisplayLook(gltf.scene, 'model')
         setScene(gltf.scene)
         if (frameOnLoad) {
           const sphere = boundsOf(gltf.scene)

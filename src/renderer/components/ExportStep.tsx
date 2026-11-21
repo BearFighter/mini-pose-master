@@ -7,7 +7,8 @@ import { DEFAULT_BAKE } from '../store/bake'
 import { runBake, showInFolder } from '../store/exportActions'
 import { cancelActiveJob } from '../store/actions'
 import { fire } from '../store/flow'
-import { percent, ProgressBar, Section } from './common'
+import { ProgressBar, Section, StepHeader, percent, EmptyState } from './common'
+import { IconCube, IconFolder, IconRig } from './icons'
 
 function NumberField({
   label,
@@ -99,11 +100,11 @@ function Result() {
   const g = result.gates
   return (
     <Section title="Result">
-      <p>
-        <strong>
-          {r.final_dims_mm.map((d) => d.toFixed(1)).join(' x ')} mm
-        </strong>{' '}
-        · {r.tris.toLocaleString('en-US')} triangles · {r.stl_mb} MB
+      <p className="result-head">
+        <strong>{r.final_dims_mm.map((d) => d.toFixed(1)).join(' x ')} mm</strong>{' '}
+        <span className="muted">
+          · {r.tris.toLocaleString('en-US')} triangles · {r.stl_mb} MB
+        </span>
       </p>
       <dl className="summary">
         <dt>Thinner than {r.min_thickness_mm} mm</dt>
@@ -133,7 +134,10 @@ function Result() {
       </dl>
       <pre className="report">{r.summary}</pre>
       <div className="button-row">
-        <button onClick={() => fire(showInFolder(result.stl))}>Show {result.stl.split('/').pop()} in folder</button>
+        <button onClick={() => fire(showInFolder(result.stl))}>
+          <IconFolder size={14} />
+          Show {result.stl.split('/').pop()} in folder
+        </button>
         {result.weapons.map((w) => (
           <button key={w.id} onClick={() => fire(showInFolder(w.stl))}>
             Show {w.stl.split('/').pop()}
@@ -157,18 +161,21 @@ export function ExportStep() {
   if (!rig) {
     return (
       <div className="step-panel">
-        <h2>Export</h2>
-        <p className="muted">Build the rig first (Rig step).</p>
+        <StepHeader step="export" />
+        <EmptyState icon={<IconRig size={22} />} title="Build the rig first">
+          <p>The Rig step places the joints and builds the rig this step needs.</p>
+        </EmptyState>
       </div>
     )
   }
   const baking = active?.type === 'bake'
   return (
     <div className="step-panel">
-      <h2>Export</h2>
+      <StepHeader step="export" />
       <Settings bake={bake} />
-      <div className="button-row">
+      <div className="button-row cta">
         <button className="primary" disabled={active !== null} onClick={() => fire(runBake())}>
+          <IconCube size={15} />
           Bake STL
         </button>
       </div>

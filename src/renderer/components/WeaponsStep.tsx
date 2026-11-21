@@ -4,6 +4,7 @@
 // scale with the print length, grip point, two-handed support grip, print separately, remove.
 import { useState } from 'react'
 import type { WeaponEntry } from '../../shared/project'
+import type { WeaponSupport } from '../../shared/weaponPose'
 import { lengthMm, unitMm } from '../lib/weapons'
 import { useStore } from '../store'
 import { fire } from '../store/flow'
@@ -13,15 +14,18 @@ import type { WeaponTool } from '../store/weapons'
 import {
   chooseAndAddWeapon,
   flipSupportAxis,
+  gripToolFor,
   removeWeapon,
   setAttachSide,
+  setFollowMode,
   setPrintSeparately,
   setTwoHanded,
   setWeaponScale,
   setWeaponUnits,
   UNIT_CHOICES
 } from '../store/weaponActions'
-import { Section, Warnings } from './common'
+import { IconPlus, IconRedo, IconRig, IconTrash, IconUndo } from './icons'
+import { Section, StepHeader, Warnings, EmptyState } from './common'
 import { PropList } from './PropList'
 
 function ScaleField({ weapon }: { weapon: WeaponEntry }) {
@@ -47,6 +51,8 @@ function ScaleField({ weapon }: { weapon: WeaponEntry }) {
   )
 }
 
+const HAND_NAME = { R: 'right', L: 'left' } as const
+
 function WeaponCard({ weapon }: { weapon: WeaponEntry }) {
   const rig = useStore((s) => s.rigJson)
   const bake = useStore((s) => s.bake)
@@ -58,30 +64,45 @@ function WeaponCard({ weapon }: { weapon: WeaponEntry }) {
   const busy = useStore((s) => s.active !== null)
   const pose = usePoseResult()
   const side = weapon.attach_bone === 'grip.L' ? 'L' : 'R'
+  const other = side === 'R' ? 'L' : 'R'
   const twoHanded = !!weapon.support?.enabled
+  const follow = (weapon.support as WeaponSupport | undefined)?.mode ?? 'both'
   const short = pose?.supportShort[weapon.id]
   const name = weapon.file.split('/').pop() ?? weapon.file
   const length = info && rig ? lengthMm(info.dims_m, weapon.offset.s, unitMm(rig, bake)) : null
   const units = weapon.unit_scale ?? info?.unit_scale_used ?? 1
-  const toolButton = (t: WeaponTool, label: string, title: string) => (
-    <button
-      className={selected && tool === t ? 'on' : ''}
-      onClick={() => {
-        selectWeapon(weapon.id)
-        setTool(t)
-      }}
-      title={title}
-    >
+  const pick = (t: WeaponTool) => {
+    selectWeapon(weapon.id)
+    setTool(t)
+  }
+  const toolButton = (t: WeaponTool, label: string, title: string, icon?: React.ReactNode) => (
+    <button className={selected && tool === t ? 'on' : ''} onClick={() => pick(t)} title={title}>
+      {icon}
       {label}
     </button>
   )
+  const gripButton = (hand: 'L' | 'R') => {
+    const t = gripToolFor(weapon, hand)
+    return (
+      <button
+        key={hand}
+        className={selected && tool === t ? 'on grip-button' : 'grip-button'}
+        onClick={() => pick(t)}
+        title={`Click the weapon where the ${HAND_NAME[hand]} hand holds it`}
+      >
+        <span className={`grip-swatch grip-${hand}`} aria-hidden="true" />
+        Set {HAND_NAME[hand]}-hand grip
+      </button>
+    )
+  }
+  const clickHand = selected && tool === 'grip' ? side : selected && tool === 'support' ? other : null
 
   return (
     <Section
       title={name}
       actions={
-        <button className="icon" title="Remove the weapon" onClick={() => removeWeapon(weapon.id)}>
-          ×
+        <button className="icon danger" title="Remove the weapon" aria-label="Remove the weapon" onClick={() => removeWeapon(weapon.id)}>
+          <IconTrash size={14} />
         </button>
       }
     >
@@ -90,9 +111,20 @@ function WeaponCard({ weapon }: { weapon: WeaponEntry }) {
           Select to move or set its grips
         </button>
       )}
+      <div className="field">
+        <span>Held with</span>
+        <div className="tabs segmented" role="tablist" aria-label="Held with">
+          <button role="tab" aria-selected={!twoHanded} className={twoHanded ? 'tab' : 'tab active'} onClick={() => setTwoHanded(weapon.id, false)}>
+            One hand
+          </button>
+          <button role="tab" aria-selected={twoHanded} className={twoHanded ? 'tab active' : 'tab'} onClick={() => setTwoHanded(weapon.id, true)}>
+            Two hands
+          </button>
+        </div>
+      </div>
       <div className="field-row">
         <label className="field inline">
-          <span>Hand</span>
+          <span>{twoHanded ? 'Main hand' : 'Hand'}</span>
           <select value={side} onChange={(e) => setAttachSide(weapon.id, e.target.value as 'L' | 'R')}>
             <option value="R">Right hand</option>
             <option value="L">Left hand</option>
@@ -125,28 +157,31 @@ function WeaponCard({ weapon }: { weapon: WeaponEntry }) {
       <div className="button-row">
         {toolButton('move', 'Move', 'Move the weapon in the hand')}
         {toolButton('rotate', 'Rotate', 'Turn the weapon in the hand')}
-        {toolButton('grip', 'Set grip point', 'Click the weapon where the hand should hold it')}
+        {!twoHanded && toolButton('grip', 'Set grip point', 'Click the weapon where the hand should hold it')}
       </div>
-      {selected && tool === 'grip' && <p className="hint small">Click the weapon where the {side === 'R' ? 'right' : 'left'} hand holds it.</p>}
-      <label className="toggle-line">
-        <input type="checkbox" checked={twoHanded} onChange={(e) => setTwoHanded(weapon.id, e.target.checked)} /> Two-handed (
-        {side === 'R' ? 'left' : 'right'} hand supports)
-      </label>
+      {twoHanded && <div className="button-row grip-row">{(['R', 'L'] as const).map(gripButton)}</div>}
+      {clickHand && <p className="hint small tip">Click the weapon where the {HAND_NAME[clickHand]} hand holds it.</p>}
+      {twoHanded && short !== undefined && short > 0.001 && (
+        <p className="warn small">
+          {other === 'L' ? 'Left' : 'Right'} hand can't reach by {(short * 1000).toFixed(0)} mm
+        </p>
+      )}
       {twoHanded && (
-        <>
+        <details className="advanced">
+          <summary>Advanced</summary>
+          <label className="field inline" title="Both hands: the pose aims the weapon from the main hand at the other hand. Main hand only: the weapon stays fixed in the main hand and the other hand reaches for its grip.">
+            <span>Weapon follows</span>
+            <select value={follow} onChange={(e) => setFollowMode(weapon.id, e.target.value as 'both' | 'reach')}>
+              <option value="both">Both hands (default)</option>
+              <option value="reach">The main hand only</option>
+            </select>
+          </label>
           <div className="button-row">
-            {toolButton('support', 'Set support grip', 'Click the weapon where the other hand holds it')}
-            <button onClick={() => flipSupportAxis(weapon.id)} title="Turn the support hand around the weapon's axis">
-              Flip grip axis
+            <button onClick={() => flipSupportAxis(weapon.id)} title={`Turn the ${HAND_NAME[other]} hand around the weapon's axis`}>
+              Flip {HAND_NAME[other]}-hand grip axis
             </button>
           </div>
-          {selected && tool === 'support' && <p className="hint small">Click the weapon where the {side === 'R' ? 'left' : 'right'} hand holds it.</p>}
-          {short !== undefined && short > 0.001 && (
-            <p className="warn small">
-              {side === 'R' ? 'Left' : 'Right'} hand can't reach by {(short * 1000).toFixed(0)} mm
-            </p>
-          )}
-        </>
+        </details>
       )}
       <label className="toggle-line">
         <input type="checkbox" checked={weapon.merge === false} onChange={(e) => setPrintSeparately(weapon.id, e.target.checked)} /> Print
@@ -165,26 +200,27 @@ export function WeaponsStep() {
   if (!rig) {
     return (
       <div className="step-panel">
-        <h2>Weapons</h2>
-        <p className="muted">Build the rig first (Rig step).</p>
+        <StepHeader step="weapons" />
+        <EmptyState icon={<IconRig size={22} />} title="Build the rig first">
+          <p>The Rig step places the joints and builds the rig this step needs.</p>
+        </EmptyState>
       </div>
     )
   }
   const free = ['grip.R', 'grip.L'].some((b) => !weapons.some((w) => w.attach_bone === b))
   return (
     <div className="step-panel">
-      <div className="step-head">
-        <h2>Weapons</h2>
-        <span className="spacer" />
-        <button onClick={undoPose} disabled={!canUndo} title="Undo (Ctrl+Z)">
-          Undo
+      <StepHeader step="weapons">
+        <button className="icon-button" onClick={undoPose} disabled={!canUndo} title="Undo (Ctrl+Z)" aria-label="Undo">
+          <IconUndo size={16} />
         </button>
-        <button onClick={redoPose} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">
-          Redo
+        <button className="icon-button" onClick={redoPose} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" aria-label="Redo">
+          <IconRedo size={16} />
         </button>
-      </div>
-      <div className="button-row">
+      </StepHeader>
+      <div className="button-row cta">
         <button className="primary" disabled={busy || !free} onClick={() => fire(chooseAndAddWeapon())} title={free ? '' : 'Both hands hold a weapon'}>
+          <IconPlus size={15} />
           Add weapon…
         </button>
       </div>

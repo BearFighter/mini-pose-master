@@ -289,7 +289,15 @@ def place_weapons(project_dir, arm, rig, weapons):
         if not os.path.exists(path):
             raise protocol.MpmError("E_IO", "the weapon file is missing: %s" % w["file"])
         objs = import_weapon(path)
-        M = attach_frame(arm, rig, w.get("attach_bone", "grip.R")) @ offset_matrix(w.get("offset"))
+        if w.get("matrix"):
+            # The renderer's transform for this pose (contracts section 12/13: composePose weaponMatrices),
+            # column-major 4x4 in armature space; needed for two-handed weapons that follow both hands.
+            m = [float(x) for x in w["matrix"]]
+            if len(m) != 16:
+                raise protocol.MpmError("E_ARGS", "weapon matrix must have 16 numbers")
+            M = arm.matrix_world @ Matrix([m[0:4], m[4:8], m[8:12], m[12:16]]).transposed()
+        else:
+            M = attach_frame(arm, rig, w.get("attach_bone", "grip.R")) @ offset_matrix(w.get("offset"))
         for o in objs:
             o.data.transform(M)
             o.data.update()

@@ -12,6 +12,7 @@ import { bindRig, type BoundRig, type LoadedGltf, type RigJson } from '../../sha
 import { cleanError } from '../api'
 import { useStore } from '../store'
 import { afterFrames, boundsOf, disposeObject, loadGltf } from './gltf'
+import { applyDisplayLook } from './look'
 import { PoseTools } from './PoseTools'
 import { groundModel, posedBounds, rigView, skinnedMeshes } from './rigView'
 import { SkeletonLines } from './SkeletonLines'
@@ -33,6 +34,7 @@ export function RigModel({
   ground,
   tools,
   weapons = [],
+  weaponMatrices = {},
   weaponTools = false
 }: {
   url: string
@@ -45,6 +47,8 @@ export function RigModel({
   tools: boolean
   /** Weapons on the grip sockets (with any preview). */
   weapons?: WeaponEntry[]
+  /** composePose weaponMatrices for this pose (armature space): where each weapon is drawn. */
+  weaponMatrices?: Record<string, number[]>
   /** Weapons step: weapon selection, gizmo and grip-point clicks. */
   weaponTools?: boolean
 }) {
@@ -62,6 +66,7 @@ export function RigModel({
       .then((gltf) => {
         if (cancelled) return disposeObject(gltf.scene)
         scene = gltf.scene
+        applyDisplayLook(gltf.scene, 'model')
         const bound = bindRig(gltf as unknown as LoadedGltf, rig)
         // Posed skinned meshes leave their rest bounds; never cull them.
         gltf.scene.traverse((o) => {
@@ -111,9 +116,9 @@ export function RigModel({
   return (
     <group ref={group}>
       <primitive object={loaded.scene} />
-      {showBones && <SkeletonLines joints={joints} color="#7fb4ff" />}
+      {showBones && <SkeletonLines joints={joints} color="#8fd0f0" />}
       {tools && <PoseTools bound={loaded.bound} rig={rig} deltas={deltas} />}
-      {weapons.length > 0 && <WeaponsLayer bound={loaded.bound} rig={rig} deltas={deltas} weapons={weapons} tools={weaponTools} />}
+      {weapons.length > 0 && <WeaponsLayer bound={loaded.bound} rig={rig} matrices={weaponMatrices} weapons={weapons} tools={weaponTools} />}
     </group>
   )
 }

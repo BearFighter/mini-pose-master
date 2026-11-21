@@ -15,7 +15,7 @@ import { retargetFrame } from './retarget'
 import type { RigJson } from './rig'
 import { mirrorName } from './skeleton'
 import type { WeaponEntry } from './weaponPose'
-import { followHands, supportIK } from './weaponPose'
+import { followHands, placeWeapon, supportIK } from './weaponPose'
 
 /** An edit, replayable on any rig: bones by canonical name, rotations and targets in Blender armature space. */
 export type EditOp =
@@ -39,6 +39,11 @@ export interface ComposeResult {
   reachShort: { L?: number; R?: number }
   /** Per weapon id, how far the support hand fell short of its grip point (metres). */
   supportShort: Record<string, number>
+  /**
+   * Per weapon id, its transform for this pose (armature space, column-major 4x4). Draw and bake the
+   * weapon with this: a two-handed weapon in "both" mode depends on where the pose puts both hands.
+   */
+  weaponMatrices: Record<string, number[]>
 }
 
 /** Every descendant of bone i (rig.json indices), any order. */
@@ -113,8 +118,15 @@ export function composePose(rig: RigJson, inputs: PoseInputs, frame: ClipFrame |
   }
   d = followHands(rig, d)
   const supportShort: Record<string, number> = {}
+  const weaponMatrices: Record<string, number[]> = {}
+  const placed = new Map<string, ReturnType<typeof placeWeapon>>()
   for (const w of inputs.weapons ?? []) {
-    const r = supportIK(rig, d, w)
+    const W = placeWeapon(rig, d, w)   // from the pose as it is, before any hand moves onto a weapon
+    placed.set(w.id, W)
+    if (W) weaponMatrices[w.id] = [...W.elements]
+  }
+  for (const w of inputs.weapons ?? []) {
+    const r = supportIK(rig, d, w, placed.get(w.id))
     if (r) {
       d = r.deltas
       supportShort[w.id] = r.reachShort
@@ -126,5 +138,5 @@ export function composePose(rig: RigJson, inputs: PoseInputs, frame: ClipFrame |
   }
   const out: Deltas = {}
   for (const [k, q] of Object.entries(resolveDeltas(rig, d))) out[k] = canonW(wxyz(q4(q)))
-  return { deltas: out, skipped, reachShort, supportShort }
+  return { deltas: out, skipped, reachShort, supportShort, weaponMatrices }
 }

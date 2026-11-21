@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The 3D viewport: R3F canvas with orbit controls, grid, lights, frame-to-fit, and what the
+// The 3D viewport: R3F canvas with orbit controls, the studio (lights, floor, shadow), frame-to-fit, and what the
 // current step shows (preview, markers + bone lines, or the skinned rig).
 import { OrbitControls } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
@@ -11,7 +11,7 @@ import { deriveJoints } from '../../shared/derive'
 import type { Deltas } from '../../shared/fk'
 import type { MarkerMap } from '../../shared/project'
 import { projectUrl } from '../lib/paths'
-import { computePose } from '../lib/pose'
+import { computePose, setupInputs, showsSetupStance } from '../lib/pose'
 import { testPoseDeltas } from '../lib/testPose'
 import { useStore } from '../store'
 import { BakedPreview } from './BakedPreview'
@@ -20,6 +20,7 @@ import { Markers } from './Markers'
 import { PreviewModel } from './PreviewModel'
 import { RigModel } from './RigModel'
 import { SkeletonLines } from './SkeletonLines'
+import { StudioFloor, StudioLights } from './Stage'
 
 /** All joints derived from the markers (finger joints included); just the markers when some are missing. */
 function useDerivedJoints(markers: MarkerMap | null): Record<string, Vec3 | Vector3> {
@@ -36,8 +37,12 @@ function useDerivedJoints(markers: MarkerMap | null): Record<string, Vec3 | Vect
 }
 
 const NO_DELTAS: Deltas = {}
+const NO_MATRICES: Record<string, number[]> = {}
 
-/** The derived pose of the Pose step (composePose of the inputs + preview), memoised. */
+/**
+ * The pose the viewer shows, memoised: composePose of the inputs + preview, or in the Weapons and Hands
+ * steps the setup stance (lib/pose setupInputs; never stored in the user's pose).
+ */
 export function usePoseResult(): ComposeResult | null {
   const rig = useStore((s) => s.rigJson)
   const inputs = useStore((s) => s.poseInputs)
@@ -45,7 +50,12 @@ export function usePoseResult(): ComposeResult | null {
   const clip = useStore((s) => s.loadedClip)
   const hands = useStore((s) => s.hands)
   const weapons = useStore((s) => s.weapons)
-  return useMemo(() => (rig ? computePose(rig, inputs, preview, clip, hands, weapons) : null), [rig, inputs, preview, clip, hands, weapons])
+  const setup = useStore((s) => showsSetupStance(s.step))
+  return useMemo(() => {
+    if (!rig) return null
+    if (setup) return computePose(rig, setupInputs(rig, weapons), preview, null, hands, weapons)
+    return computePose(rig, inputs, preview, clip, hands, weapons)
+  }, [rig, inputs, preview, clip, hands, weapons, setup])
 }
 
 function Scene() {
@@ -64,8 +74,11 @@ function Scene() {
   const testDeltas = useMemo(() => (rigJson ? testPoseDeltas(rigJson) : NO_DELTAS), [rigJson])
   const weapons = useStore((s) => s.posePreview?.weapons ?? s.weapons)
   const bakedUrl = useStore((s) => (s.showBaked && s.bakeResult ? projectUrl(s.bakeResult.preview_glb, s.bakeVersion) : null))
+  // floor and shadow scale: the model's height (the baked preview is at print size, in metres)
+  const modelHeight = useStore((s) => s.importInfo?.height_m ?? s.rigJson?.height_m ?? 1.8)
+  const bakedSize = useStore((s) => (s.bakeResult ? Math.max(...s.bakeResult.report.final_dims_mm) / 1000 : null))
 
-  if (!hasProject) return null
+  if (!hasProject) return <StudioFloor size={1.8} shadow={false} />
   const rigReady = rigJson !== null && glbUrl !== null
   const showRig = rigReady && (step === 'rig' ? view === 'rig' : step !== 'import')
   const showMarkers = step === 'rig' && !showRig && rigPath === 'auto' && markers !== null
@@ -74,9 +87,11 @@ function Scene() {
   const deltas = posing ? (pose?.deltas ?? NO_DELTAS) : testPose ? testDeltas : NO_DELTAS
   const label = posing ? 'pose' : testPose ? 'test' : 'rest'
   const baked = step === 'export' && bakedUrl !== null
+  const shown = baked || showRig || previewUrl !== null
 
   return (
     <>
+      <StudioFloor size={baked ? (bakedSize ?? modelHeight) : modelHeight} shadow={shown} />
       {!showRig && previewUrl && <PreviewModel url={previewUrl} xray={showMarkers && xray} />}
       {baked && bakedUrl && <BakedPreview url={bakedUrl} />}
       {showRig && !baked && rigJson && glbUrl && (
@@ -89,6 +104,7 @@ function Scene() {
           ground={posing}
           tools={step === 'pose'}
           weapons={posing ? weapons : []}
+          weaponMatrices={pose?.weaponMatrices ?? NO_MATRICES}
           weaponTools={step === 'weapons'}
         />
       )}
@@ -108,14 +124,12 @@ export function Viewer() {
     <Canvas
       frameloop="demand"
       dpr={[1, 2]}
+      gl={{ alpha: true, antialias: true }}
       camera={{ position: [1.6, 1.4, 3.6], fov: 40, near: 0.01, far: 200 }}
       onPointerMissed={() => select(null)}
     >
-      <color attach="background" args={['#15171c']} />
-      <hemisphereLight args={['#e4e9ff', '#2b2620', 1.1]} />
-      <directionalLight position={[3, 5, 4]} intensity={1.8} />
-      <directionalLight position={[-4, 3, -3]} intensity={0.7} />
-      <gridHelper args={[10, 20, '#4a5263', '#2a2f3a']} />
+      {/* transparent canvas: the viewport's CSS gradient and vignette show through */}
+      <StudioLights />
       <OrbitControls makeDefault />
       <CameraRig />
       <Scene />

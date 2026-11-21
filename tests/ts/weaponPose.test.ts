@@ -4,13 +4,13 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Matrix4, Quaternion, Vector3 } from 'three'
 import { describe, expect, it } from 'vitest'
-import type { PoseInputs } from '../../src/shared/composePose'
+import type { EditOp, PoseInputs } from '../../src/shared/composePose'
 import { composePose } from '../../src/shared/composePose'
 import { canonicalIndex, posedBones, posedJoints } from '../../src/shared/fk'
 import type { HandPose } from '../../src/shared/handPose'
 import { inv, mul, q4, quatAngleDeg, v3, wxyz } from '../../src/shared/math'
 import type { WeaponEntry } from '../../src/shared/weaponPose'
-import { attachFrame, followHands, weaponMatrix } from '../../src/shared/weaponPose'
+import { attachFrame, followHands, holdingStance, mainGripPoint, placeWeapon, weaponMatrix } from '../../src/shared/weaponPose'
 import { autoRig } from './helpers/skeletonRig'
 
 const AUTO = autoRig()
@@ -28,7 +28,7 @@ const sword = (support: boolean): WeaponEntry => ({
   file: 'weapons/sword.glb',
   attach_bone: 'grip.R',
   offset: { t: [0, 0, -0.03], q: [1, 0, 0, 0], s: 1 },
-  support: { enabled: support, side: 'L', point: [0, 0, -0.035], normal: [-1, 0, 0], axis: [0, 0, 1] }
+  support: { enabled: support, side: 'L', mode: 'reach', point: [0, 0, -0.035], normal: [-1, 0, 0], axis: [0, 0, 1] }
 })
 
 describe('weapon placement', () => {
@@ -103,3 +103,72 @@ describe('two-hand support IK', () => {
     expect(b).toEqual(a)
   })
 })
+
+describe('two-handed weapons that follow both hands ("both" mode)', () => {
+  // A two-handed sword: right hand at the guard, left hand 12 cm further down the grip (weapon-local -Z).
+  const greatsword = (mode?: 'both' | 'reach'): WeaponEntry => ({
+    id: 'gs',
+    file: 'weapons/gs.glb',
+    attach_bone: 'grip.R',
+    offset: { t: [0, 0, 0], q: [1, 0, 0, 0], s: 1 },
+    support: { enabled: true, side: 'L', mode, point: [0, 0, -0.12], normal: [-1, 0, 0], axis: [0, 0, 1] }
+  })
+  const stance = (): PoseInputs => ({
+    mirrored: false,
+    planted: false,
+    edits: holdingStance(AUTO, 'R').map((h) => ({ kind: 'reach' as const, side: h.side, target: h.target }))
+  })
+
+  it('points the weapon from the main hand at the support hand, then closes the support hand on its grip', () => {
+    const w = greatsword()
+    const before = composePose(AUTO, stance(), null).deltas
+    const r = composePose(AUTO, { ...stance(), weapons: [w] }, null)
+    const W = new Matrix4().fromArray(r.weaponMatrices.gs)
+    const pb0 = posedBones(AUTO, before)
+    const pm = mainGripPoint(w).applyMatrix4(W)
+    // main grip on the main hand's socket
+    expect(pm.distanceTo(pb0[I('grip.R')].head)).toBeLessThan(1e-9)
+    // the weapon's grip line points at where the pose had the support hand
+    const dir = v3(w.support!.point).applyMatrix4(W).sub(pm).normalize()
+    const want = pb0[I('grip.L')].head.clone().sub(pm).normalize()
+    expect(dir.angleTo(want)).toBeLessThan(1e-6)
+    // and the support hand ends exactly on its grip when it can reach
+    const pb = posedBones(AUTO, r.deltas)
+    expect(r.supportShort.gs).toBeLessThan(1e-6)
+    expect(pb[I('grip.L')].head.distanceTo(v3(w.support!.point).applyMatrix4(W))).toBeLessThan(1e-4)
+    // the main arm is not touched by the support IK
+    expect(quatAngleDeg(q4(r.deltas[String(I('forearm.R'))]), q4(before[String(I('forearm.R'))]))).toBeLessThan(1e-9)
+  })
+
+  it('moving the support arm in the pose turns the weapon', () => {
+    const w = greatsword()
+    const a = composePose(AUTO, { ...stance(), weapons: [w] }, null).weaponMatrices.gs
+    const moved = stance()
+    const t = (moved.edits[1] as Extract<EditOp, { kind: 'reach' }>).target
+    moved.edits[1] = { kind: 'reach', side: 'L', target: [t[0] + 0.1, t[1], t[2] - 0.1] }
+    const b = composePose(AUTO, { ...moved, weapons: [w] }, null).weaponMatrices.gs
+    const da = new Vector3(0, 0, -1).transformDirection(new Matrix4().fromArray(a))
+    const db = new Vector3(0, 0, -1).transformDirection(new Matrix4().fromArray(b))
+    expect(da.angleTo(db)).toBeGreaterThan(0.1)
+  })
+
+  it('"reach" mode keeps the weapon fixed in the main hand; one-handed weapons are unchanged', () => {
+    const w = greatsword('reach')
+    const r = composePose(AUTO, { ...stance(), weapons: [w] }, null)
+    const fixed = weaponMatrix(AUTO, r.deltas, w) as Matrix4
+    expect(Math.max(...fixed.elements.map((e, k) => Math.abs(e - r.weaponMatrices.gs[k])))).toBeLessThan(1e-9)
+    const one = { ...greatsword(), support: { ...greatsword().support!, enabled: false } }
+    const d = composePose(AUTO, stance(), null).deltas
+    expect(placeWeapon(AUTO, d, one)!.elements).toEqual((weaponMatrix(AUTO, d, one) as Matrix4).elements)
+  })
+
+  it('the holding stance brings both hands in front of the body within reach', () => {
+    const r = composePose(AUTO, stance(), null)
+    const j = posedJoints(AUTO, r.deltas)
+    expect(r.reachShort.R ?? 0).toBeLessThan(1e-6)
+    expect(r.reachShort.L ?? 0).toBeLessThan(1e-6)
+    expect(j.wrist_R.y).toBeLessThan(j.shoulder_R.y - 0.15)   // in front (the figure faces -Y)
+    expect(j.wrist_L.y).toBeLessThan(j.shoulder_L.y - 0.15)
+  })
+})
+

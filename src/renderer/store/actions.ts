@@ -22,6 +22,7 @@ import { addRecent } from '../lib/recent'
 import { defaultConfirm, errorBanner, fail, fire, nextVersion, S, type ConfirmDiscard } from './flow'
 import { restorePoseFromProject, syncPoseToProject } from './poseActions'
 import { mappingForJob } from './rig'
+import type { Step } from './ui'
 
 export const MODEL_FILTERS: FileFilter[] = [
   { name: '3D models', extensions: ['fbx', 'glb', 'gltf', 'obj', 'stl', 'ply'] },
@@ -109,13 +110,22 @@ function initSlicesFromProject(data: ProjectData): void {
   s.setBakeResult(null)
 }
 
+/** The step a project opens on: the furthest one started (pose, then weapons), else rig or import. */
+export function openingStep(data: ProjectData): Step {
+  if (!data.rig) return 'import'
+  const p = data.pose?.provenance
+  if (p && (p.clip || (p.edits?.length ?? 0) > 0)) return 'pose'
+  if ((data.weapons?.length ?? 0) > 0) return 'weapons'
+  return data.pose ? 'pose' : 'rig'
+}
+
 async function adoptProject(dir: string, data: ProjectData): Promise<void> {
   const s = S()
   setJobProjectDir(dir)
   s.setProject(dir, data)
   initSlicesFromProject(data)
   s.select(null)
-  s.setStep(data.rig ? (data.pose ? 'pose' : 'rig') : 'import')
+  s.setStep(openingStep(data))
   addRecent({ dir, name: projectName(dir) })
   const markers = data.rigDraft?.markers ?? null
   if (markers) S().setMarkers(markers, { dirty: false })

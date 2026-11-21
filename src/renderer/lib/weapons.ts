@@ -6,9 +6,9 @@ import { Matrix4, type Mesh, type Object3D, Quaternion, Vector3, type BufferAttr
 import type { QuatWXYZ, Vec3 } from '../../shared/coords'
 import { C, CT } from '../../shared/coords'
 import { arr, q4, v3, wxyz } from '../../shared/math'
-import type { BakeSettings } from '../../shared/project'
+import type { BakeSettings, WeaponEntry } from '../../shared/project'
 import type { RigJson } from '../../shared/rig'
-import type { WeaponOffset } from '../../shared/weaponPose'
+import type { WeaponOffset, WeaponSupport } from '../../shared/weaponPose'
 
 /** C (three -> Blender) and C^T as 4x4. */
 export const C4 = new Matrix4().setFromMatrix3(C)
@@ -147,4 +147,20 @@ export function weaponTriangles(root: Object3D, Mb: Matrix4): Float32Array {
 /** The next free weapon id: w1, w2, ... */
 export function nextWeaponId(ids: string[]): string {
   for (let n = 1; ; n++) if (!ids.includes(`w${n}`)) return `w${n}`
+}
+
+/**
+ * A note for the support arm of a two-handed weapon: that arm is placed on the weapon's grip after the
+ * edits. In "both" mode turning it turns the weapon; in "reach" mode the weapon stays in the main hand.
+ */
+export function supportArmNote(bone: string, weapons: WeaponEntry[]): string | null {
+  const m = /^(shoulder|upper_arm|forearm|hand)\.([LR])$/.exec(bone)
+  if (!m) return null
+  const w = weapons.find((x) => x.support?.enabled && x.support.side === m[2])
+  if (!w) return null
+  const name = w.file.split('/').pop() ?? w.file
+  const mode = (w.support as WeaponSupport).mode ?? 'both'
+  return mode === 'both'
+    ? `This hand holds ${name} with the other hand: turning the arm turns the weapon, and the hand stays on its grip.`
+    : `This hand reaches for the grip of ${name}, which stays fixed in the other hand. Turn the other arm, or let the weapon follow both hands (Weapons step).`
 }

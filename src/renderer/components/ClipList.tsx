@@ -8,6 +8,7 @@ import { useStore } from '../store'
 import { fire } from '../store/flow'
 import { selectClip } from '../store/poseActions'
 import { thumbQueue } from '../viewer/thumbService'
+import { IconSearch } from './icons'
 
 export const VIRTUALIZE_ABOVE = 200
 const ROW_HEIGHT = 56
@@ -92,13 +93,15 @@ export function ClipList() {
 
   return (
     <div className="clip-list">
-      <input
-        type="search"
-        className="clip-search"
-        placeholder={`Search ${index.clips.length} clips`}
-        value={text}
-        onChange={(e) => setClipFilter(e.target.value)}
-      />
+      <div className="search-field clip-search">
+        <IconSearch size={14} />
+        <input
+          type="search"
+          placeholder={`Search ${index.clips.length} clips`}
+          value={text}
+          onChange={(e) => setClipFilter(e.target.value)}
+        />
+      </div>
       {tagList.length > 0 && (
         <div className="chips">
           {tagList.map((t) => (
