@@ -66,7 +66,7 @@ def main(job):
     weapon_objs = [o for _w, objs in placed for o in objs]
 
     protocol.progress("detail", 0.12, "baking surface detail")
-    baked, dinfo = BK.bake_detail(meshes + weapon_objs, unit, float(bake.get("detail", 2.0)))
+    baked, dinfo = BK.bake_detail(meshes + weapon_objs, unit, float(bake.get("detail", 2.0)), standing_mm)
     by_src = dict(zip([o.name for o in meshes + weapon_objs], baked))
     for o in meshes + weapon_objs:
         o.hide_viewport = True

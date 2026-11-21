@@ -481,6 +481,10 @@ the UI (clips are hip-centred and the bake drops the lowest point to z = 0).
   "detail": 2.0, "flatten_mm": 0.5, "base_mm": 0, "min_wall_mm": 0.6, "thicken_thin": true,
   "weapons_separate": false, "max_tris": 2000000 }
 ```
+- `detail`: relief depth multiplier, clamped to 0–3 (1 = as deep as the normal map describes, 0 = no
+  displacement). The relief eases to zero over ~0.1 mm at UV island edges (no steps along seams), and
+  every move is soft-limited to 0.5 % of the standing height (`cap · tanh(d / cap)`). The result's
+  `detail` block reports `strength`, `cap_um` and `displaced_um` (1st–99th percentile after the cap).
 - `heroic`: the eye height of the standing rest pose (from the `head` joint z + 0.4·(head_top − head))
   equals `size_mm`.
 - `height_mm` is the standing rest height, so poses keep their scale (a crouch prints shorter).

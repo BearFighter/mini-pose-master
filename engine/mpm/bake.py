@@ -17,6 +17,9 @@ from .rig import skin as SKN
 FACE_BUDGET = 8_000_000   # contracts section 14: subdivided faces in total
 MAX_EDGE_MM = 0.06        # subdivide until the median edge is at most this long at print size
 MAX_LEVEL = 4
+MAX_DETAIL = 3.0          # relief depth multiplier: 1 = as deep as the normal map describes
+RELIEF_CAP = 0.005        # soft limit on any surface move, as a fraction of the standing height
+SEAM_FADE_MM = 0.05       # relief eases to zero over about twice this at UV island edges
 PREVIEW_TRIS = 300_000
 CHUNK = 100_000           # vertices per block in the weight transfer (bounds memory on dense meshes)
 
@@ -150,7 +153,8 @@ def _height_maps(objs, unit):
         sizes = [(D.texel_size(o.data, w, h, o.matrix_world), len(o.data.polygons)) for o in users]
         texel = sum(a * n for a, n in sizes) / max(sum(n for _, n in sizes), 1)
         sigma = max(8.0, 0.5 / max(texel * unit, 1e-12))  # keep relief finer than about 0.5 mm
-        hm, info = D.height_from_normal(nrm, mask, sigma_px=sigma)
+        fade = max(1.5, SEAM_FADE_MM / max(texel * unit, 1e-12))
+        hm, info = D.height_from_normal(nrm, mask, sigma_px=sigma, fade_px=fade)
         out[name] = (hm, texel)
         notes.append({"image": name, "green": info["green"], "texel_um": round(texel * unit * 1000, 1),
                       "relief_um": [round(info["p01"] * texel * unit * 1000), round(info["p99"] * texel * unit * 1000)]})
@@ -188,16 +192,22 @@ def plan_levels(objs, unit, has_map):
     return levels, total(), lowered
 
 
-def bake_detail(objs, unit, strength):
+def bake_detail(objs, unit, strength, height_mm):
     """Static, world-space copies of `objs` as currently evaluated (posed), subdivided after the
-    armature and displaced along the normal by the relief recovered from each normal map."""
+    armature and displaced along the normal by the relief recovered from each normal map.
+
+    `strength` scales the recovered depth (clamped to MAX_DETAIL); every move is soft-limited to
+    RELIEF_CAP of the standing height so fingers, toes and faces keep their shape at high settings."""
+    strength = min(max(strength, 0.0), MAX_DETAIL)
+    cap = RELIEF_CAP * height_mm / max(unit, 1e-12)
     hmaps, notes = _height_maps(objs, unit) if strength > 0 else ({}, [])
     has_map = {}
     for o in objs:
         img = normal_map_for(o)
         has_map[o.name] = img is not None and img.name in hmaps
     levels, est, lowered = plan_levels(objs, unit, has_map)
-    info = {"height_maps": notes, "levels": levels, "faces": est, "levels_lowered": lowered, "displaced_um": {}}
+    info = {"height_maps": notes, "levels": levels, "faces": est, "levels_lowered": lowered, "displaced_um": {},
+            "strength": strength, "cap_um": round(cap * unit * 1000)}
     out = []
     for o in objs:
         lvl = levels[o.name]
@@ -215,10 +225,10 @@ def bake_detail(objs, unit, strength):
         bpy.context.scene.collection.objects.link(ob)
         if has_map[o.name] and me.uv_layers:
             hm, texel = hmaps[normal_map_for(o).name]
-            hv = D.displace_mesh(me, hm, texel * strength)
-            k = texel * strength * unit * 1000
-            info["displaced_um"][o.name] = [round(float(np.percentile(hv, 1)) * k),
-                                            round(float(np.percentile(hv, 99)) * k)]
+            d = D.displace_mesh(me, hm, texel * strength, cap=cap)
+            k = unit * 1000
+            info["displaced_um"][o.name] = [round(float(np.percentile(d, 1)) * k),
+                                            round(float(np.percentile(d, 99)) * k)]
         out.append(ob)
     return out, info
 

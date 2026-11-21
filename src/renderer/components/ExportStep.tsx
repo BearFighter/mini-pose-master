@@ -73,7 +73,15 @@ function Settings({ bake }: { bake: BakeSettings }) {
           step={1}
           onChange={(v) => update({ scale: heroic ? { mode: 'heroic', size_mm: v } : { mode: 'height_mm', height_mm: v } })}
         />
-        <NumberField label="Detail" value={bake.detail} min={0} max={4} step={0.5} onChange={(v) => update({ detail: v })} title="Surface detail (subdivision of normal-mapped meshes)" />
+        <NumberField
+          label="Detail depth"
+          value={Math.min(bake.detail, 3)}
+          min={0}
+          max={3}
+          step={0.25}
+          onChange={(v) => update({ detail: v })}
+          title="How deep the normal-map detail is cut into the surface: 1 = as deep as the map describes, 2 = twice as deep, 0 = off. Higher values do not add detail, they only exaggerate it."
+        />
         <NumberField label="Sole flatten mm" value={bake.flatten_mm} min={0} max={5} step={0.1} onChange={(v) => update({ flatten_mm: v })} />
         <NumberField label="Base mm (0 = none)" value={bake.base_mm} min={0} max={100} step={1} onChange={(v) => update({ base_mm: v })} />
         <NumberField label="Min wall mm" value={bake.min_wall_mm} min={0.1} max={3} step={0.05} onChange={(v) => update({ min_wall_mm: v })} />

@@ -166,11 +166,14 @@ def _blur(a, sigma):
     return np.real(np.fft.ifft2(np.fft.fft2(a) * g))
 
 
-def height_from_normal(nrm, mask, sigma_px=24.0):
+def height_from_normal(nrm, mask, sigma_px=24.0, fade_px=0.0):
     """Small-scale relief (in texel units) from a tangent-space normal map.
 
     Returns (height, info). Height is zero-mean inside the UV islands and is
     smoothly extended a little past their edges so sampling at seams is safe.
+    With `fade_px` > 0 the relief eases to zero over about 2 * fade_px texels at every island edge:
+    each island is integrated on its own, so the two sides of a UV seam carry unrelated offsets and
+    would otherwise meet in a step (a groove or ridge along every seam).
     """
     info = {}
     e_up = _curl_energy(*_gradients(nrm, True), mask)
@@ -186,6 +189,9 @@ def height_from_normal(nrm, mask, sigma_px=24.0):
     m = mask.astype(np.float64)
     low = _blur(hgt * m, sigma_px) / np.maximum(_blur(m, sigma_px), 1e-6)
     detail = (hgt - low) * m
+    if fade_px > 0:
+        # the blurred mask is 0.5 on a straight island edge and ~1 two sigmas inside
+        detail *= np.clip(2.0 * _blur(m, fade_px) - 1.0, 0.0, 1.0)
     # extend past island edges so bilinear lookups at seams don't hit zeros
     num, den = detail.copy(), m.copy()
     for s in (2.0, 4.0, 8.0):
@@ -233,10 +239,12 @@ def sample_bilinear(hmap, uv):
             + (hmap[y1, x0] * (1 - fx) + hmap[y1, x1] * fx) * fy)
 
 
-def displace_mesh(me, hmap, amount):
+def displace_mesh(me, hmap, amount, cap=None):
     """Move each vertex along its normal by height * amount (object units).
 
-    Vertices on UV seams get the average of their loops' samples.
+    Vertices on UV seams get the average of their loops' samples. With `cap` (object units) the move
+    is soft-limited to cap * tanh(d / cap): small relief is unchanged, tall spikes flatten out at cap.
+    Returns the per-vertex move in object units.
     """
     nv, nl = len(me.vertices), len(me.loops)
     uv = np.empty(nl * 2, np.float32)
@@ -246,12 +254,14 @@ def displace_mesh(me, hmap, amount):
     s = sample_bilinear(hmap, uv.reshape(-1, 2))
     acc = np.bincount(lv, weights=s, minlength=nv)
     cnt = np.bincount(lv, minlength=nv)
-    hv = acc / np.maximum(cnt, 1)
+    d = acc / np.maximum(cnt, 1) * amount
+    if cap is not None and cap > 0:
+        d = cap * np.tanh(d / cap)
     co = np.empty(nv * 3, np.float32)
     me.vertices.foreach_get("co", co)
     nrm = np.empty(nv * 3, np.float32)
     me.vertices.foreach_get("normal", nrm)
-    co = co.reshape(-1, 3) + nrm.reshape(-1, 3) * (hv * amount)[:, None]
+    co = co.reshape(-1, 3) + nrm.reshape(-1, 3) * d[:, None]
     me.vertices.foreach_set("co", co.astype(np.float32).ravel())
     me.update()
-    return hv
+    return d
